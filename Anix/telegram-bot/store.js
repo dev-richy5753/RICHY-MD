@@ -11,6 +11,16 @@ if (!fs.existsSync(FILE) && fs.existsSync(LEGACY)) {
 }
 
 let data = { sessions: {}, users: {}, maintenance: false };
+const APP_EVENT_TYPES = new Set([
+    'pair_requested',
+    'pair_code_issued',
+    'pair_connected',
+    'pair_failed',
+    'session_disconnected',
+    'session_reconnected',
+    'session_deleted',
+    'session_logged_out',
+]);
 
 function load() {
     try {
@@ -61,6 +71,26 @@ module.exports = {
         return Object.entries(data.sessions)
             .filter(([, s]) => s.telegramUserId === telegramUserId)
             .map(([number, s]) => ({ number, ...s }));
+    },
+    recordAppEvent(telegramUserId, type, at = Date.now()) {
+        if (!APP_EVENT_TYPES.has(type)) throw new Error(`Unknown app event type: ${type}`);
+        if (!Number.isSafeInteger(telegramUserId) || telegramUserId <= 0 || !Number.isSafeInteger(at)) {
+            throw new Error('Invalid app event data.');
+        }
+        const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
+        const events = Array.isArray(data.appEvents) ? data.appEvents : [];
+        data.appEvents = events
+            .filter((event) => Number.isSafeInteger(event.at) && event.at >= cutoff && APP_EVENT_TYPES.has(event.type))
+            .concat({ telegramUserId, type, at })
+            .slice(-10000);
+        save();
+    },
+    appEventsForUser(telegramUserId, since = 0) {
+        return (Array.isArray(data.appEvents) ? data.appEvents : [])
+            .filter((event) => event.telegramUserId === telegramUserId
+                && Number.isSafeInteger(event.at)
+                && event.at >= since
+                && APP_EVENT_TYPES.has(event.type));
     },
     allSessions() {
         return data.sessions;

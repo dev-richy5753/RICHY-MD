@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#050608">
+    <meta name="description" content="Pair your WhatsApp session and keep an eye on connection health with RICHY MD.">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="/app/manifest.webmanifest">
+    <link rel="icon" href="/app/icon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/app/app.css">
+    <title>RICHY MD — Pairings & analytics</title>
+    <script src="/app/app.js" defer></script>
+</head>
+<body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <header class="topbar">
+        <a class="brand" href="/" aria-label="RICHY MD home">
+            <span class="brand-mark" aria-hidden="true">R</span>
+            <span>RICHY <strong>MD</strong></span>
+        </a>
+        <div class="topbar-actions">
+            <span class="secure-label"><span class="live-dot"></span> PRIVATE DASHBOARD</span>
+            <button class="button button-quiet install-button" id="install-button" type="button" hidden>Install app</button>
+        </div>
+    </header>
+
+    <main class="shell">
+        <section class="intro">
+            <p class="eyebrow"><span>PAIRINGS</span><i></i><span>ANALYTICS</span></p>
+            <h1>Your sessions.<br><span>All in one place.</span></h1>
+            <p class="intro-copy">Pair your WhatsApp and keep track of connection health, uptime, and pairing activity.</p>
+        </section>
+
+        <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+
+        <section class="auth-panel panel" id="sign-in" aria-labelledby="sign-in-title" hidden>
+            <div class="auth-icon" aria-hidden="true">↗</div>
+            <p class="eyebrow">YOUR ACCOUNT, YOUR SESSIONS</p>
+            <h2 id="sign-in-title">Sign in with Telegram</h2>
+            <p>Use your Telegram account to securely manage only the WhatsApp sessions linked to you.</p>
+            <div class="telegram-widget" id="telegram-widget"></div>
+            <p class="fine-print">RICHY MD never asks for your Telegram password or WhatsApp messages.</p>
+        </section>
+
+        <section class="dashboard" id="dashboard" hidden>
+            <div class="account-row panel">
+                <div class="account-identity">
+                    <span class="account-avatar" aria-hidden="true">R</span>
+                    <div><p class="eyebrow">SIGNED IN AS</p><h2 id="account-name"></h2></div>
+                </div>
+                <button class="button button-quiet" id="logout-button" type="button">Sign out</button>
+            </div>
+
+            <div class="metric-grid" aria-label="Session analytics">
+                <article class="metric panel">
+                    <span class="metric-icon" aria-hidden="true">◉</span>
+                    <p>Connected sessions</p>
+                    <strong id="metric-connected">0</strong>
+                    <span class="metric-detail" id="metric-total">of 0 total</span>
+                </article>
+                <article class="metric panel">
+                    <span class="metric-icon" aria-hidden="true">⌁</span>
+                    <p>Connection health</p>
+                    <strong><span id="metric-health">0</span><small>%</small></strong>
+                    <span class="metric-detail">currently connected</span>
+                </article>
+                <article class="metric panel">
+                    <span class="metric-icon" aria-hidden="true">↗</span>
+                    <p>Reconnects · last 90 days</p>
+                    <strong id="metric-reconnects">0</strong>
+                    <span class="metric-detail">successful reconnects</span>
+                </article>
+                <article class="metric panel">
+                    <span class="metric-icon" aria-hidden="true">◷</span>
+                    <p>Total uptime</p>
+                    <strong class="metric-uptime" id="metric-uptime">0m</strong>
+                    <span class="metric-detail">across your sessions</span>
+                </article>
+            </div>
+
+            <div class="content-grid">
+                <section class="panel activity-panel" aria-labelledby="activity-title">
+                    <div class="panel-heading">
+                        <div><p class="eyebrow">LAST 7 DAYS</p><h2 id="activity-title">Pairing activity</h2></div>
+                        <span class="chart-key"><i></i> Requests <i class="key-success"></i> Connected</span>
+                    </div>
+                    <div class="chart" id="activity-chart" role="img" aria-label="Pairing activity over the last seven days"></div>
+                </section>
+
+                <section class="panel pair-panel" aria-labelledby="pair-title">
+                    <p class="eyebrow">NEW CONNECTION</p>
+                    <h2 id="pair-title">Pair a WhatsApp number</h2>
+                    <p>Enter the number you own, including its country code.</p>
+                    <form id="pair-form">
+                        <label for="phone-number">WhatsApp number</label>
+                        <div class="input-row">
+                            <input id="phone-number" name="number" type="tel" inputmode="tel" autocomplete="tel"
+                                   placeholder="+1 555 123 4567" maxlength="30" required>
+                            <button class="button button-primary" id="pair-button" type="submit">Get code <span aria-hidden="true">↗</span></button>
+                        </div>
+                    </form>
+                    <p class="pair-hint"><span aria-hidden="true">◇</span> You must approve the link from your own WhatsApp app.</p>
+                </section>
+            </div>
+
+            <section class="panel sessions-panel" aria-labelledby="sessions-title">
+                <div class="panel-heading">
+                    <div><p class="eyebrow">YOUR WHATSAPP</p><h2 id="sessions-title">Sessions</h2></div>
+                    <button class="button button-quiet button-refresh" id="refresh-button" type="button"><span aria-hidden="true">↻</span> Refresh</button>
+                </div>
+                <div class="session-list" id="session-list"></div>
+                <div class="empty-state" id="empty-state" hidden>
+                    <span aria-hidden="true">◌</span>
+                    <h3>No sessions yet</h3>
+                    <p>Pair a number to see its connection status and analytics here.</p>
+                </div>
+            </section>
+
+            <p class="privacy-note"><span aria-hidden="true">◆</span> Analytics contain connection and pairing events only. Message contents are not collected.</p>
+        </section>
+
+        <footer class="app-footer">
+            <a href="/">← Back to RICHY MD</a>
+            <span>Connect with care. Only pair accounts you own or are authorized to use.</span>
+        </footer>
+    </main>
+</body>
+</html>

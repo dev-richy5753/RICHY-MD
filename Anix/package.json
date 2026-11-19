@@ -8,7 +8,9 @@
     "start": "node telegram-bot/index.js",
     "dev": "nodemon src/index.js",
     "vf": "node vf.js",
-    "test": "node --test"
+    "test": "node --test",
+    "android:sync": "cap sync android",
+    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug && mkdir -p ../website/downloads && cp app/build/outputs/apk/debug/app-debug.apk ../website/downloads/Base-Tele-X-WA.apk"
   },
   "dependencies": {
     "@boobablopars/tgs-to": "^2.1.0",
@@ -22,7 +24,11 @@
     "telegraf": "^4.16.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.4"
+    "@capacitor/android": "^7.6.10",
+    "@capacitor/cli": "^7.6.10",
+    "@capacitor/core": "^7.6.10",
+    "nodemon": "^3.1.4",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=22.12.0"

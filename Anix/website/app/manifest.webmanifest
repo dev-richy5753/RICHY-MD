@@ -1,0 +1,19 @@
+{
+  "id": "/app/",
+  "name": "RICHY MD",
+  "short_name": "RICHY MD",
+  "description": "WhatsApp pairings and connection analytics",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "background_color": "#050608",
+  "theme_color": "#050608",
+  "icons": [
+    {
+      "src": "/app/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

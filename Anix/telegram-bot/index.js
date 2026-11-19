@@ -2,6 +2,7 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const fs = require('fs');
 const path = require('path');
 const { startHealthServer } = require('./health-server');
+const { createAppApi } = require('./app-api');
 const { Telegraf } = require('telegraf');
 const store = require('./store');
 const { startSession, removeSession, isPaired, isRunning, isConnected, listSavedSessionIds, sendToSelf } = require('../src/session');
@@ -280,6 +281,10 @@ function sessionCallbacks(number, { restored = false } = {}) {
         restored,
 
         onPairingCode: async (code) => {
+            const session = store.getSession(number);
+            if (Number.isSafeInteger(session?.telegramUserId)) {
+                store.recordAppEvent(session.telegramUserId, 'pair_code_issued');
+            }
             const p = pendingPair.get(number);
             if (!p) return;
             // one button only: copy the pairing code straight to the clipboard
@@ -291,6 +296,10 @@ function sessionCallbacks(number, { restored = false } = {}) {
 
         onPairingError: async (err) => {
             const chatId = chatOf();
+            const session = store.getSession(number);
+            if (Number.isSafeInteger(session?.telegramUserId)) {
+                store.recordAppEvent(session.telegramUserId, 'pair_failed');
+            }
             await cleanup();
             const limited = /429|rate/i.test(err.message);
             await notify(
@@ -302,6 +311,10 @@ function sessionCallbacks(number, { restored = false } = {}) {
 
         onPairingFailed: async () => {
             const chatId = chatOf();
+            const session = store.getSession(number);
+            if (Number.isSafeInteger(session?.telegramUserId)) {
+                store.recordAppEvent(session.telegramUserId, 'pair_failed');
+            }
             await cleanup();
             await notify(
                 chatId,
@@ -311,8 +324,24 @@ function sessionCallbacks(number, { restored = false } = {}) {
         },
 
         onConnected: async (isFirstTime) => {
-            if (!store.getSession(number)) return; // deleted while connecting
-            store.setSession(number, { connected: true, connectedAt: Date.now() });
+            const previous = store.getSession(number);
+            if (!previous) return; // deleted while connecting
+            const connectedAt = Date.now();
+            if (Number.isSafeInteger(previous.telegramUserId)) {
+                store.setSession(number, {
+                    connected: true,
+                    pairingState: 'connected',
+                    connectedAt: previous.connectedAt || connectedAt,
+                    connectedSince: connectedAt,
+                    totalUptimeMs: previous.totalUptimeMs || 0,
+                    reconnectCount: (previous.reconnectCount || 0) + (previous.connectedAt ? 1 : 0),
+                    pairingCode: null,
+                    pairingCodeExpiresAt: null,
+                });
+                store.recordAppEvent(previous.telegramUserId, previous.connectedAt ? 'session_reconnected' : 'pair_connected');
+            } else {
+                store.setSession(number, { connected: true, connectedAt });
+            }
             const p = pendingPair.get(number);
             pendingPair.delete(number);
             if (!isFirstTime) return; // restarts / reconnects stay silent
@@ -329,12 +358,45 @@ function sessionCallbacks(number, { restored = false } = {}) {
         },
 
         onDisconnected: () => {
-            if (store.getSession(number)) store.setSession(number, { connected: false });
+            const previous = store.getSession(number);
+            if (!previous) return;
+            if (Number.isSafeInteger(previous.telegramUserId)) {
+                const disconnectedAt = Date.now();
+                const accrued = previous.connectedSince
+                    ? Math.max(0, disconnectedAt - previous.connectedSince)
+                    : 0;
+                store.setSession(number, {
+                    connected: false,
+                    pairingState: 'reconnecting',
+                    connectedSince: null,
+                    totalUptimeMs: (previous.totalUptimeMs || 0) + accrued,
+                    lastDisconnectedAt: disconnectedAt,
+                });
+                store.recordAppEvent(previous.telegramUserId, 'session_disconnected', disconnectedAt);
+            } else {
+                store.setSession(number, { connected: false });
+            }
         },
 
         // the same login is running somewhere else too: this copy stopped itself, files are kept
         onReplaced: async () => {
-            if (store.getSession(number)) store.setSession(number, { connected: false });
+            const previous = store.getSession(number);
+            if (Number.isSafeInteger(previous?.telegramUserId)) {
+                const disconnectedAt = Date.now();
+                const accrued = previous.connectedSince
+                    ? Math.max(0, disconnectedAt - previous.connectedSince)
+                    : 0;
+                store.setSession(number, {
+                    connected: false,
+                    pairingState: 'error',
+                    connectedSince: null,
+                    totalUptimeMs: (previous.totalUptimeMs || 0) + accrued,
+                    lastDisconnectedAt: disconnectedAt,
+                });
+                store.recordAppEvent(previous.telegramUserId, 'session_disconnected', disconnectedAt);
+            } else if (previous) {
+                store.setSession(number, { connected: false });
+            }
             await notify(
                 chatOf(),
                 notice('warn', 'Session open somewhere else', `<code>${esc(number)}</code> is also running in another place (an old panel or another bot), so this copy stopped to avoid corrupting messages. Close the other copy, then send <code>/pair ${esc(number)}</code> to resume - no new code needed.`),
@@ -346,7 +408,30 @@ function sessionCallbacks(number, { restored = false } = {}) {
         onLoggedOut: async () => {
             const chatId = chatOf();
             pendingPair.delete(number);
-            store.deleteSession(number);
+            const previous = store.getSession(number);
+            if (previous?.appOwned) {
+                const loggedOutAt = Date.now();
+                const accrued = previous.connectedSince
+                    ? Math.max(0, loggedOutAt - previous.connectedSince)
+                    : 0;
+                if (Number.isSafeInteger(previous.telegramUserId)) {
+                    store.recordAppEvent(previous.telegramUserId, 'session_logged_out', loggedOutAt);
+                }
+                store.setSession(number, {
+                    connected: false,
+                    pairingState: 'logged_out',
+                    connectedSince: null,
+                    totalUptimeMs: (previous.totalUptimeMs || 0) + accrued,
+                    pairingCode: null,
+                    pairingCodeExpiresAt: null,
+                    lastError: 'This WhatsApp session was logged out.',
+                });
+            } else {
+                if (Number.isSafeInteger(previous?.telegramUserId)) {
+                    store.recordAppEvent(previous.telegramUserId, 'session_logged_out');
+                }
+                store.deleteSession(number);
+            }
             await notify(
                 chatId,
                 notice('warn', 'Session logged out', `<code>${esc(number)}</code> was unlinked from WhatsApp. The session was deleted automatically - use /pair to link it again.`),
@@ -389,6 +474,7 @@ async function beginPair(ctx, number) {
     // Clean slate: kills any half-dead socket and DELETES old auth files, so WhatsApp always issues a fresh code
     await removeSession(number);
     store.setSession(number, { telegramChatId: chatId, telegramUserId: ctx.from.id, connected: false, createdAt: Date.now(), connectedAt: null });
+    store.recordAppEvent(ctx.from.id, 'pair_requested');
 
     const waiting = await sendDoc(ctx.telegram, chatId, notice('wait', 'Requesting pairing code', `<code>${esc(number)}</code>`));
     pendingPair.set(number, { chatId, messageId: waiting.message_id });
@@ -846,6 +932,11 @@ bot.telegram
     })
     .catch((err) => console.error('[telegram] failed to read bot profile:', err.message));
 
+for (const [number, session] of Object.entries(store.allSessions())) {
+    if (Number.isSafeInteger(session.telegramUserId)) {
+        store.setSession(number, { connected: false, connectedSince: null });
+    }
+}
 restoreSessions().catch((err) => console.error('[telegram] restore failed:', err));
 
 const port = Number(process.env.PORT || 3000);
@@ -853,7 +944,13 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
     console.error(`[http] Invalid PORT value: ${process.env.PORT}`);
     process.exit(1);
 }
-const healthServer = startHealthServer(port);
+const appApi = createAppApi({
+    botToken: BOT_TOKEN,
+    botUsername: process.env.TELEGRAM_BOT_USERNAME,
+    store,
+    engine: { startSession, removeSession, isPaired, isRunning, isConnected },
+});
+const healthServer = startHealthServer(port, appApi);
 healthServer.on('listening', () => console.log(`[http] health endpoint listening on port ${port}`));
 healthServer.on('error', (err) => {
     console.error('[http] health server failed:', err);

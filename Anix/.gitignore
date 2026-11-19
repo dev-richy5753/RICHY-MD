@@ -7,3 +7,7 @@ telegram-bot/node_modules/
 telegram-bot/data/
 telegram-bot/.env
 .vf-state.json
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/

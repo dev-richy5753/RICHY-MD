@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#080c12">
+    <meta name="description" content="RICHY MD is your Telegram-powered companion for pairing and managing your WhatsApp session.">
+    <title>RICHY MD — Your WhatsApp, connected</title>
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/site.js" defer></script>
+</head>
+<body>
+    <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
+    <div class="pointer-glow" id="pointer-glow" aria-hidden="true"></div>
+    <div class="backdrop" aria-hidden="true">
+        <video id="background-video" class="backdrop-video" muted loop playsinline></video>
+        <div class="backdrop-grid"></div>
+        <div class="backdrop-shade"></div>
+    </div>
+
+    <header class="site-header">
+        <a class="brand" href="#top" aria-label="RICHY MD home">
+            <span class="brand-mark"><span>R</span></span>
+            <span>RICHY <strong>MD</strong></span>
+        </a>
+        <nav class="site-nav" aria-label="Main navigation">
+            <a href="#features">Features</a>
+            <a href="#insights">Dashboard</a>
+            <a href="#how-it-works">How it works</a>
+            <a href="#faq">FAQ</a>
+            <a href="#download">Get the app</a>
+        </nav>
+        <a class="button button-small button-outline bot-link" data-telegram-link
+           data-ready-label="Try the bot" data-missing-label="Bot link coming soon"
+           aria-disabled="true">Bot link coming soon</a>
+    </header>
+
+    <main id="top">
+        <section class="hero page-width">
+            <div class="hero-copy" data-reveal>
+                <p class="eyebrow"><span class="eyebrow-dot"></span> MEET YOUR TELEGRAM-POWERED COMPANION</p>
+                <h1>Your WhatsApp.<br><span>In your control.</span></h1>
+                <p class="hero-description">
+                    Pair your own WhatsApp session and see what matters at a glance:
+                    connection health, uptime, and pairing activity.
+                </p>
+                <div class="hero-actions">
+                    <a class="button button-primary bot-link" data-telegram-link
+                       data-ready-label="Open RICHY MD on Telegram" data-missing-label="Telegram link coming soon"
+                       aria-disabled="true">Telegram link coming soon <span aria-hidden="true">↗</span></a>
+                    <a class="button button-outline" href="/app/">Explore the dashboard <span aria-hidden="true">↓</span></a>
+                </div>
+                <p class="hero-note"><span class="status-dot"></span> Built for pairing and controlling your own WhatsApp session</p>
+            </div>
+            <div class="hero-visual" data-reveal data-delay="140">
+                <span class="orbit orbit-one" aria-hidden="true"></span>
+                <span class="orbit orbit-two" aria-hidden="true"></span>
+                <div class="hero-card" aria-label="Pairing flow preview">
+                    <div class="card-topline"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>RICHY MD</span></div>
+                    <div class="chat-row">
+                        <div class="bot-avatar" aria-hidden="true">R</div>
+                        <div>
+                            <p class="chat-title">A clearer view of your connection</p>
+                            <p class="chat-copy">Pair once. Keep the important signals close.</p>
+                        </div>
+                    </div>
+                    <div class="pairing-preview">
+                        <span class="pairing-label">SESSION HEALTH</span>
+                        <span class="pairing-command"><span class="status-dot"></span> Connected <span>· just now</span></span>
+                        <span class="pairing-footnote">Uptime <strong>12h 48m</strong><span class="preview-divider"></span>Reconnects <strong>02</strong></span>
+                    </div>
+                    <div class="card-bottom"><span>Pairing activity</span><span>Private analytics</span><span>Clear status</span></div>
+                    <span class="card-glow" aria-hidden="true"></span>
+                </div>
+                <div class="floating-tag floating-tag-top"><span class="tag-sparkle">✦</span> ONE SIMPLE FLOW</div>
+                <div class="floating-tag floating-tag-bottom"><span class="tag-check">✓</span> YOUR SESSION, YOUR CONTROL</div>
+            </div>
+        </section>
+
+        <section class="features page-width" id="features">
+            <div class="section-heading" data-reveal>
+                <p class="eyebrow">MADE TO BE USEFUL</p>
+                <h2>More than a pairing code.</h2>
+                <p>Get a focused set of tools for the WhatsApp session you connect.</p>
+            </div>
+            <div class="feature-grid">
+                <article class="feature-card" data-reveal data-delay="0">
+                    <span class="feature-index">01 <span class="feature-icon" aria-hidden="true">↗</span></span>
+                    <h3>Pair with confidence</h3>
+                    <p>Start a pairing request for your own WhatsApp number, then approve the connection in WhatsApp.</p>
+                </article>
+                <article class="feature-card" data-reveal data-delay="100">
+                    <span class="feature-index">02 <span class="feature-icon" aria-hidden="true">✦</span></span>
+                    <h3>Know your connection</h3>
+                    <p>See which sessions are online, reconnecting, or waiting for you to finish pairing.</p>
+                </article>
+                <article class="feature-card" data-reveal data-delay="200">
+                    <span class="feature-index">03 <span class="feature-icon" aria-hidden="true">◌</span></span>
+                    <h3>Useful analytics</h3>
+                    <p>Follow uptime, reconnects, and recent pairing activity without collecting message contents.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="dashboard-showcase page-width" id="insights">
+            <div class="section-heading" data-reveal>
+                <p class="eyebrow">YOUR CONTROL ROOM</p>
+                <h2>Small details.<br>Big peace of mind.</h2>
+                <p>A quick look at the signals that help you understand your connected sessions.</p>
+            </div>
+            <div class="showcase-window" data-reveal data-delay="120">
+                <div class="showcase-topbar">
+                    <div class="showcase-brand"><span class="showcase-mark">R</span><span>RICHY <strong>MD</strong><small>SESSION OVERVIEW</small></span></div>
+                    <span class="showcase-demo"><i></i> DASHBOARD PREVIEW</span>
+                </div>
+                <div class="showcase-metrics">
+                    <article><span>Connected sessions</span><strong>02</strong><small><i></i> Both online</small></article>
+                    <article><span>Connection health</span><strong>98<em>%</em></strong><small>Across your sessions</small></article>
+                    <article><span>Reconnects</span><strong>04</strong><small>Last 90 days</small></article>
+                    <article><span>Total uptime</span><strong>12<span class="metric-unit">d</span> 08<span class="metric-unit">h</span></strong><small>And counting</small></article>
+                </div>
+                <div class="showcase-details">
+                    <div class="showcase-chart-panel">
+                        <div class="showcase-panel-heading"><span><small>PAIRINGS</small><strong>Weekly activity</strong></span><span class="chart-legend"><i></i> Requests <i class="legend-green"></i> Connected</span></div>
+                        <div class="showcase-bars" aria-label="Example pairing activity chart">
+                            <span><i style="--bar:24%"></i><b style="--bar:14%"></b><small>M</small></span>
+                            <span><i style="--bar:42%"></i><b style="--bar:25%"></b><small>T</small></span>
+                            <span><i style="--bar:30%"></i><b style="--bar:16%"></b><small>W</small></span>
+                            <span><i style="--bar:72%"></i><b style="--bar:52%"></b><small>T</small></span>
+                            <span><i style="--bar:49%"></i><b style="--bar:31%"></b><small>F</small></span>
+                            <span><i style="--bar:86%"></i><b style="--bar:64%"></b><small>S</small></span>
+                            <span><i style="--bar:38%"></i><b style="--bar:22%"></b><small>S</small></span>
+                        </div>
+                    </div>
+                    <div class="showcase-session-panel">
+                        <div class="showcase-panel-heading"><span><small>STATUS</small><strong>Your sessions</strong></span><span class="showcase-count">02</span></div>
+                        <div class="showcase-session"><span class="session-device">01</span><span><strong>WhatsApp session</strong><small>•••• 4821</small></span><b><i></i> Online</b></div>
+                        <div class="showcase-session"><span class="session-device violet">02</span><span><strong>WhatsApp session</strong><small>•••• 1094</small></span><b><i></i> Online</b></div>
+                    </div>
+                </div>
+                <p class="showcase-caption">Illustrative preview · your dashboard shows your own account data</p>
+            </div>
+        </section>
+
+        <section class="principles page-width">
+            <div class="section-heading" data-reveal>
+                <p class="eyebrow">MADE FOR THE ESSENTIALS</p>
+                <h2>Everything in its right place.</h2>
+            </div>
+            <div class="principle-grid">
+                <article class="principle-card" data-reveal>
+                    <span class="principle-symbol">⌁</span>
+                    <h3>One calm overview</h3>
+                    <p>Keep connection status and recent activity together, without hunting through menus.</p>
+                </article>
+                <article class="principle-card" data-reveal data-delay="100">
+                    <span class="principle-symbol">◷</span>
+                    <h3>Useful at a glance</h3>
+                    <p>Check uptime and reconnects when you need them, on a phone or desktop screen.</p>
+                </article>
+                <article class="principle-card" data-reveal data-delay="200">
+                    <span class="principle-symbol">◇</span>
+                    <h3>Privacy by focus</h3>
+                    <p>Analytics are about pairing and connectivity—not message contents or conversations.</p>
+                </article>
+            </div>
+        </section>
+
+        <section class="how page-width" id="how-it-works">
+            <div class="section-heading" data-reveal>
+                <p class="eyebrow">A SIMPLE, OWNER-APPROVED FLOW</p>
+                <h2>Connect on your terms.</h2>
+                <p>RICHY MD guides the pairing request. You stay in control of approving it from WhatsApp.</p>
+            </div>
+            <ol class="steps">
+                <li data-reveal data-delay="0"><span>01</span><div><h3>Sign in with Telegram</h3><p>Your dashboard is scoped to the Telegram account you authenticate.</p></div></li>
+                <li data-reveal data-delay="100"><span>02</span><div><h3>Request a pairing code</h3><p>Enter your number with its country code and receive a short-lived code.</p></div></li>
+                <li data-reveal data-delay="200"><span>03</span><div><h3>Approve in WhatsApp</h3><p>Enter the code in your own WhatsApp app to authorize the connection.</p></div></li>
+                <li data-reveal data-delay="300"><span>04</span><div><h3>Keep an eye on health</h3><p>Return any time to see status, uptime, and recent pairing activity.</p></div></li>
+            </ol>
+        </section>
+
+        <section class="faq page-width" id="faq">
+            <div class="section-heading" data-reveal>
+                <p class="eyebrow">GOOD TO KNOW</p>
+                <h2>Questions, answered.</h2>
+            </div>
+            <div class="faq-list" data-reveal data-delay="100">
+                <details>
+                    <summary>What does the app do?</summary>
+                    <p>It lets you pair and monitor WhatsApp sessions associated with your Telegram sign-in. The dashboard focuses on pairing activity, connection health, uptime, and reconnects.</p>
+                </details>
+                <details>
+                    <summary>How do I approve a pairing?</summary>
+                    <p>Request a code for a number you own, then follow WhatsApp’s device-linking flow in your own WhatsApp app. Never share a pairing code with anyone else.</p>
+                </details>
+                <details>
+                    <summary>Does RICHY MD read my messages for analytics?</summary>
+                    <p>No. The dashboard analytics use connection and pairing events; they do not include message contents.</p>
+                </details>
+                <details>
+                    <summary>Can I use it on mobile?</summary>
+                    <p>Yes. The dashboard is responsive and installable as a web app on supported browsers. An Android APK can be added after the service has its final deployment URL.</p>
+                </details>
+            </div>
+        </section>
+
+        <section class="download page-width" id="download">
+            <div class="download-panel" data-reveal>
+                <div>
+                    <p class="eyebrow">RICHY MD APP</p>
+                    <h2>Pair. Track. Stay connected.</h2>
+                    <p class="download-copy">Open the dashboard to pair your WhatsApp session and keep your connection insights close.</p>
+                </div>
+                <div class="download-actions">
+                    <a class="button button-primary" href="/app/">Open the app <span aria-hidden="true">↗</span></a>
+                    <button class="button button-outline download-link" data-apk-link type="button" disabled>
+                        APK coming soon <span aria-hidden="true">↓</span>
+                    </button>
+                </div>
+            </div>
+            <p class="download-footnote">Install the web app from your browser menu. The Android APK will be built for the new service URL after deployment.</p>
+        </section>
+    </main>
+
+    <footer class="site-footer page-width">
+        <a class="brand" href="#top"><span class="brand-mark"><span>R</span></span><span>RICHY <strong>MD</strong></span></a>
+        <p>Connect with care. Only pair accounts you own or are authorized to use.</p>
+        <span class="footer-copy">© <span id="year"></span> RICHY MD</span>
+    </footer>
+
+    <aside class="mascot-companion" id="mascot-companion" aria-label="RICHY MD animated companion">
+        <button class="mascot-button" id="mascot-button" type="button" aria-label="RICHY MD companion. Click for a reaction.">
+            <span class="mascot-speech" id="mascot-speech" aria-live="polite">Hey there, I'm RICHY!</span>
+            <svg class="mascot-svg" viewBox="0 0 180 190" role="img" aria-label="A small red robot mascot">
+                <defs>
+                    <linearGradient id="mascot-shell-gradient" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="#ff6475"/>
+                        <stop offset="0.5" stop-color="#ed2445"/>
+                        <stop offset="1" stop-color="#9d1535"/>
+                    </linearGradient>
+                    <linearGradient id="mascot-body-gradient" x1="0" y1="0" x2="0.9" y2="1">
+                        <stop offset="0" stop-color="#ff5269"/>
+                        <stop offset="1" stop-color="#bd1637"/>
+                    </linearGradient>
+                    <linearGradient id="mascot-visor-gradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0" stop-color="#27202c"/>
+                        <stop offset="1" stop-color="#11131c"/>
+                    </linearGradient>
+                    <linearGradient id="mascot-glass-gradient" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" stop-color="#fff" stop-opacity=".18"/>
+                        <stop offset=".45" stop-color="#fff" stop-opacity="0"/>
+                    </linearGradient>
+                    <filter id="mascot-shadow-filter" x="-50%" y="-50%" width="200%" height="200%">
+                        <feGaussianBlur stdDeviation="4"/>
+                    </filter>
+                </defs>
+                <ellipse class="mascot-shadow" cx="90" cy="176" rx="39" ry="6" fill="#03050a" opacity=".38" filter="url(#mascot-shadow-filter)"/>
+                <g class="mascot-body">
+                    <path d="M57 118 Q59 109 70 107 H110 Q121 109 123 118 L131 153 Q132 162 122 163 H58 Q48 162 49 153Z" fill="url(#mascot-body-gradient)" stroke="#ff9aa6" stroke-opacity=".48" stroke-width="1.5"/>
+                    <path d="M66 117 Q90 126 114 117 L119 150 Q90 157 61 150Z" fill="#191a24" opacity=".78"/>
+                    <path d="M73 133 Q90 127 107 133" fill="none" stroke="#ff7c8e" stroke-opacity=".8" stroke-width="2" stroke-linecap="round"/>
+                    <circle cx="90" cy="143" r="4" fill="#ffb5bd"/>
+                    <path d="M52 121 Q43 127 42 140" fill="none" stroke="#f7435d" stroke-width="9" stroke-linecap="round"/>
+                    <path d="M128 121 Q137 127 138 140" fill="none" stroke="#f7435d" stroke-width="9" stroke-linecap="round"/>
+                    <path d="M70 161 H110" fill="none" stroke="#ff9aa6" stroke-opacity=".65" stroke-width="3" stroke-linecap="round"/>
+                </g>
+                <g class="mascot-head">
+                    <path d="M90 36 V26" fill="none" stroke="#fa536a" stroke-width="5" stroke-linecap="round"/>
+                    <circle class="mascot-antenna-light" cx="90" cy="22" r="6" fill="#ff9a67"/>
+                    <path d="M36 72 H25 Q17 72 17 81 Q17 90 26 90 H36" fill="url(#mascot-shell-gradient)" stroke="#ff9aa6" stroke-opacity=".5" stroke-width="1.5"/>
+                    <path d="M144 72 H155 Q163 72 163 81 Q163 90 154 90 H144" fill="url(#mascot-shell-gradient)" stroke="#ff9aa6" stroke-opacity=".5" stroke-width="1.5"/>
+                    <rect x="31" y="33" width="118" height="99" rx="36" fill="url(#mascot-shell-gradient)" stroke="#ff9aa6" stroke-opacity=".66" stroke-width="1.5"/>
+                    <path d="M47 48 Q58 37 78 37" fill="none" stroke="#fff" stroke-opacity=".3" stroke-width="3" stroke-linecap="round"/>
+                    <rect x="41" y="51" width="98" height="62" rx="25" fill="url(#mascot-visor-gradient)" stroke="#ffb1ba" stroke-opacity=".4" stroke-width="1.2"/>
+                    <path d="M43 69 Q50 52 67 52 H96 Q68 57 53 77 Q47 84 42 88Z" fill="url(#mascot-glass-gradient)" opacity=".8"/>
+                    <path class="mascot-brow brow-left" d="M52 61 Q63 54 75 60" fill="none" stroke="#ffb0b9" stroke-width="3" stroke-linecap="round"/>
+                    <path class="mascot-brow brow-right" d="M105 60 Q117 54 128 61" fill="none" stroke="#ffb0b9" stroke-width="3" stroke-linecap="round"/>
+                    <g class="mascot-eyes">
+                        <g class="mascot-eye mascot-eye-left">
+                            <ellipse cx="65" cy="77" rx="13" ry="16" fill="#fff7f5"/>
+                            <g class="mascot-pupil">
+                                <ellipse cx="67" cy="79" rx="6" ry="9" fill="#321722"/>
+                                <circle cx="69" cy="75" r="2.4" fill="#fff"/>
+                            </g>
+                        </g>
+                        <g class="mascot-eye mascot-eye-right">
+                            <ellipse cx="115" cy="77" rx="13" ry="16" fill="#fff7f5"/>
+                            <g class="mascot-pupil">
+                                <ellipse cx="113" cy="79" rx="6" ry="9" fill="#321722"/>
+                                <circle cx="115" cy="75" r="2.4" fill="#fff"/>
+                            </g>
+                        </g>
+                    </g>
+                    <g class="mascot-love-eyes" aria-hidden="true">
+                        <path d="M0 5 C-11 -3 -5 -11 0 -5 C5 -11 11 -3 0 5Z" transform="translate(65 77)" fill="#ff6680"/>
+                        <path d="M0 5 C-11 -3 -5 -11 0 -5 C5 -11 11 -3 0 5Z" transform="translate(115 77)" fill="#ff6680"/>
+                    </g>
+                    <path class="expression-mouth mouth-neutral" d="M79 94 Q90 99 101 94" fill="none" stroke="#ff9aa6" stroke-width="3" stroke-linecap="round"/>
+                    <path class="expression-mouth mouth-smile" d="M75 91 Q90 106 105 91" fill="none" stroke="#ff9aa6" stroke-width="3.2" stroke-linecap="round"/>
+                    <ellipse class="expression-mouth mouth-surprised" cx="90" cy="96" rx="5" ry="7" fill="#ff8b9b"/>
+                    <path class="expression-mouth mouth-playful" d="M77 92 Q90 102 103 91" fill="none" stroke="#ff9aa6" stroke-width="3" stroke-linecap="round"/>
+                    <path class="expression-mouth mouth-angry" d="M77 101 Q90 91 103 101" fill="none" stroke="#ff9aa6" stroke-width="3" stroke-linecap="round"/>
+                    <ellipse class="expression-mouth mouth-talk" cx="90" cy="97" rx="5" ry="5" fill="#ff8292"/>
+                    <path class="mascot-tongue" d="M89 98 Q96 99 96 105 Q90 107 88 102Z" fill="#ff7890"/>
+                </g>
+                <path d="M62 166 Q90 174 118 166" fill="none" stroke="#ff586e" stroke-opacity=".55" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+        </button>
+    </aside>
+
+    <button class="music-toggle" id="music-toggle" type="button" aria-label="Turn background music on" hidden>
+        <span aria-hidden="true">♫</span> <span id="music-label">Sound off</span>
+    </button>
+    <audio id="background-music" loop preload="none"></audio>
+</body>
+</html>

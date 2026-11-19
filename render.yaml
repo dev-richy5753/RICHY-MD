@@ -13,5 +13,7 @@ services:
         sync: false
       - key: OWNER_TELEGRAM_ID
         sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
       - key: NODE_ENV
         value: production
