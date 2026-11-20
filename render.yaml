@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: base-tele-x-wa
+    name: richy-md
     runtime: docker
     plan: free
     region: oregon
@@ -12,8 +12,6 @@ services:
       - key: BOT_TOKEN
         sync: false
       - key: OWNER_TELEGRAM_ID
-        sync: false
-      - key: TELEGRAM_BOT_USERNAME
         sync: false
       - key: NODE_ENV
         value: production

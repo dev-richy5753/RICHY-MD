@@ -8,52 +8,73 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="manifest" href="/app/manifest.webmanifest">
-    <link rel="icon" href="/app/icon.svg" type="image/svg+xml">
+    <link rel="icon" href="/assets/images/richy-md-icon.png" type="image/png">
+    <link rel="apple-touch-icon" href="/assets/images/richy-md-icon.png">
     <link rel="stylesheet" href="/app/app.css">
-    <title>RICHY MD — Pairings & analytics</title>
+    <title>RICHY MD — WhatsApp pairing</title>
     <script src="/app/app.js" defer></script>
 </head>
 <body>
+    <div class="app-backdrop" aria-hidden="true">
+        <video id="app-theme-video" muted loop playsinline preload="none" poster="/app/icon.webp">
+            <source src="/assets/videos/app-theme.mp4" type="video/mp4">
+        </video>
+        <div class="app-backdrop-shade"></div>
+    </div>
     <div class="ambient ambient-one" aria-hidden="true"></div>
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
     <header class="topbar">
         <a class="brand" href="/" aria-label="RICHY MD home">
-            <span class="brand-mark" aria-hidden="true">R</span>
+            <img class="brand-mark" src="/assets/images/richy-md-icon.png" alt="">
             <span>RICHY <strong>MD</strong></span>
         </a>
         <div class="topbar-actions">
-            <span class="secure-label"><span class="live-dot"></span> PRIVATE DASHBOARD</span>
+            <span class="secure-label"><span class="live-dot"></span> READY TO PAIR</span>
+            <button class="button button-quiet theme-audio-button" id="theme-audio-button" type="button" aria-pressed="false" aria-label="Play RICHY MD soundtrack">
+                <span aria-hidden="true">♫</span><span id="theme-audio-label">Play soundtrack</span>
+            </button>
             <button class="button button-quiet install-button" id="install-button" type="button" hidden>Install app</button>
         </div>
     </header>
 
     <main class="shell">
         <section class="intro">
-            <p class="eyebrow"><span>PAIRINGS</span><i></i><span>ANALYTICS</span></p>
-            <h1>Your sessions.<br><span>All in one place.</span></h1>
-            <p class="intro-copy">Pair your WhatsApp and keep track of connection health, uptime, and pairing activity.</p>
+            <p class="eyebrow"><span>WHATSAPP PAIRING</span><i></i><span>RICHY MD</span></p>
+            <h1>Pair your<br><span>WhatsApp.</span></h1>
+            <p class="intro-copy">Enter your number with its country code. We’ll get your linking code ready.</p>
+        </section>
+
+        <section class="app-loading panel" id="app-loading" role="status" aria-live="polite">
+            <span class="loading-spinner" aria-hidden="true"></span>
+            <span>Preparing pairing…</span>
         </section>
 
         <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
 
-        <section class="auth-panel panel" id="sign-in" aria-labelledby="sign-in-title" hidden>
-            <div class="auth-icon" aria-hidden="true">↗</div>
-            <p class="eyebrow">YOUR ACCOUNT, YOUR SESSIONS</p>
-            <h2 id="sign-in-title">Sign in with Telegram</h2>
-            <p>Use your Telegram account to securely manage only the WhatsApp sessions linked to you.</p>
-            <div class="telegram-widget" id="telegram-widget"></div>
-            <p class="fine-print">RICHY MD never asks for your Telegram password or WhatsApp messages.</p>
-        </section>
-
         <section class="dashboard" id="dashboard" hidden>
-            <div class="account-row panel">
-                <div class="account-identity">
-                    <span class="account-avatar" aria-hidden="true">R</span>
-                    <div><p class="eyebrow">SIGNED IN AS</p><h2 id="account-name"></h2></div>
+            <section class="panel pair-panel" aria-labelledby="pair-title">
+                <div class="pair-heading">
+                    <div><p class="eyebrow">START HERE</p><h2 id="pair-title">Pair your WhatsApp</h2></div>
                 </div>
-                <button class="button button-quiet" id="logout-button" type="button">Sign out</button>
-            </div>
+                <p>Enter your number with its country code.</p>
+                <form id="pair-form">
+                    <label for="phone-number">WhatsApp number</label>
+                    <div class="input-row">
+                        <input id="phone-number" name="number" type="tel" inputmode="tel" autocomplete="tel"
+                               placeholder="+1 555 123 4567" maxlength="30" required>
+                        <button class="button button-primary" id="pair-button" type="submit">
+                            <span class="button-label">Get pairing code</span><span aria-hidden="true">↗</span>
+                        </button>
+                    </div>
+                </form>
+                <p class="pair-hint"><span aria-hidden="true">◇</span> You must approve the link from your own WhatsApp app.</p>
+                <div class="pairing-result" id="pairing-result" role="status" aria-live="polite" hidden>
+                    <p class="eyebrow" id="pairing-result-label">YOUR WHATSAPP LINKING CODE</p>
+                    <strong class="pairing-code" id="pairing-code"></strong>
+                    <p class="pairing-instructions" id="pairing-instructions"></p>
+                </div>
+            </section>
 
             <div class="metric-grid" aria-label="Session analytics">
                 <article class="metric panel">
@@ -91,20 +112,6 @@
                     <div class="chart" id="activity-chart" role="img" aria-label="Pairing activity over the last seven days"></div>
                 </section>
 
-                <section class="panel pair-panel" aria-labelledby="pair-title">
-                    <p class="eyebrow">NEW CONNECTION</p>
-                    <h2 id="pair-title">Pair a WhatsApp number</h2>
-                    <p>Enter the number you own, including its country code.</p>
-                    <form id="pair-form">
-                        <label for="phone-number">WhatsApp number</label>
-                        <div class="input-row">
-                            <input id="phone-number" name="number" type="tel" inputmode="tel" autocomplete="tel"
-                                   placeholder="+1 555 123 4567" maxlength="30" required>
-                            <button class="button button-primary" id="pair-button" type="submit">Get code <span aria-hidden="true">↗</span></button>
-                        </div>
-                    </form>
-                    <p class="pair-hint"><span aria-hidden="true">◇</span> You must approve the link from your own WhatsApp app.</p>
-                </section>
             </div>
 
             <section class="panel sessions-panel" aria-labelledby="sessions-title">
@@ -125,8 +132,9 @@
 
         <footer class="app-footer">
             <a href="/">← Back to RICHY MD</a>
-            <span>Connect with care. Only pair accounts you own or are authorized to use.</span>
+            <span>Only pair WhatsApp numbers you own or are authorized to use.</span>
         </footer>
     </main>
+    <audio id="theme-audio" src="/assets/videos/music.mp3" autoplay preload="auto" loop></audio>
 </body>
 </html>

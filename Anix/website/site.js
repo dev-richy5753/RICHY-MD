@@ -1,5 +1,4 @@
 const APK_URL = '/downloads/Base-Tele-X-WA.apk';
-const BOT_LINK_HOSTS = new Set(['t.me', 'www.t.me', 'telegram.me', 'www.telegram.me']);
 const SCROLL_COLORS = [
     '#ff304f',
     '#ff476d',
@@ -99,25 +98,6 @@ function initializeMotion() {
     });
 }
 
-function enableTelegramLinks(value) {
-    let url;
-    try {
-        url = new URL(value);
-    } catch {
-        return;
-    }
-
-    if (url.protocol !== 'https:' || !BOT_LINK_HOSTS.has(url.hostname.toLowerCase())) return;
-
-    document.querySelectorAll('[data-telegram-link]').forEach((link) => {
-        link.href = url.href;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        link.removeAttribute('aria-disabled');
-        link.textContent = link.dataset.readyLabel;
-    });
-}
-
 async function configureDownloads() {
     const link = document.querySelector('[data-apk-link]');
     try {
@@ -133,21 +113,9 @@ async function configureDownloads() {
 }
 
 async function configureBackgroundMedia() {
-    const video = document.querySelector('#background-video');
     const music = document.querySelector('#background-music');
     const musicToggle = document.querySelector('#music-toggle');
     const musicLabel = document.querySelector('#music-label');
-
-    try {
-        const response = await fetch('/assets/videos/landing.mp4', { method: 'HEAD', cache: 'no-store' });
-        if (response.ok) {
-            video.src = '/assets/videos/landing.mp4';
-            video.addEventListener('canplay', () => video.classList.add('is-ready'), { once: true });
-            video.play().catch((error) => console.warn('[website] Background video could not autoplay:', error));
-        }
-    } catch (error) {
-        console.error('[website] Could not check for the background video:', error);
-    }
 
     try {
         const response = await fetch('/assets/videos/music.mp3', { method: 'HEAD', cache: 'no-store' });
@@ -298,18 +266,6 @@ async function initializeWebsite() {
     document.querySelector('#year').textContent = String(new Date().getFullYear());
     initializeMotion();
     initializeMascot();
-    document.querySelectorAll('[data-telegram-link]').forEach((link) => {
-        link.textContent = link.dataset.missingLabel || link.textContent;
-    });
-
-    try {
-        const response = await fetch('/site-config.json', { cache: 'no-store' });
-        if (!response.ok) throw new Error(`site config returned HTTP ${response.status}`);
-        const config = await response.json();
-        if (config.telegramBotUrl) enableTelegramLinks(config.telegramBotUrl);
-    } catch (error) {
-        console.error('[website] Could not load the Telegram bot link:', error);
-    }
 
     await Promise.all([configureDownloads(), configureBackgroundMedia()]);
 }

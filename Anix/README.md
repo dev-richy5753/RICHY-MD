@@ -39,32 +39,33 @@ For the standalone WhatsApp pairing flow, run `npm run dev` and follow the termi
 
 ## Website and app download
 
-The Render service serves the landing page from `/`, the installable pairing and analytics dashboard from `/app/`, and keeps `/health` for its health check. Set `TELEGRAM_BOT_USERNAME` (without `@`) and configure the public domain with BotFather's `/setdomain` command to enable Telegram Login Widget sign-in. The app verifies Telegram's signed login data with `BOT_TOKEN`; users can only manage sessions linked to their own Telegram account. Set the optional `TELEGRAM_BOT_URL` to an HTTPS `t.me` link to enable the landing-page Telegram buttons.
+The Render service serves the landing page from `/`, the installable pairing and analytics app from `/app/`, and keeps `/health` for its health check. Pairing uses a signed, private browser session; users enter their WhatsApp number directly and do not need Telegram sign-in. `TELEGRAM_BOT_USERNAME` and the optional `TELEGRAM_BOT_URL` are only for Telegram bot links.
 
-The dashboard is a Progressive Web App and can be installed from a supported mobile browser. It provides WhatsApp pairing, connection health, pairing activity, uptime, and reconnect analytics; it does not collect message content. Pairing telemetry is retained for 90 days.
+The app is a Progressive Web App and can be installed from a supported mobile browser. It provides WhatsApp pairing, connection health, pairing activity, uptime, and reconnect analytics; it does not collect message content. Pairing telemetry is retained for 90 days. Each browser gets its own signed session cookie to keep its session list private.
 
-An Android Capacitor wrapper opens the dashboard URL supplied at build time. After deploying the service and getting its new Render URL, set `RICHY_MD_APP_URL` to that URL ending in `/app/`. Build a debug APK with Node.js 22+, Java 21, and Android SDK platform/build tools 35 installed:
+An Android Capacitor wrapper opens the app URL supplied at build time. After deploying the service and getting its new Render URL, set `RICHY_MD_APP_URL` to that URL ending in `/app/`. Android builds reject local and Codespaces hosts so the downloadable app cannot show a Codespaces access prompt. The APK contains the client-side app assets and public service URL, not backend source or credentials; client-side assets are inspectable by design. Build a debug APK with Node.js 22+, Java 21, and Android SDK platform/build tools 35 installed:
 
 ```sh
 export RICHY_MD_APP_URL=https://your-new-service.onrender.com/app/
 npm run android:apk
 ```
 
-The script writes `website/downloads/Base-Tele-X-WA.apk`, which the landing page exposes for download. The download stays unavailable until that APK exists. This is a debug-signed test build, not a Play Store release. The wrapper requires an internet connection and the deployed dashboard/API to be available.
+The script writes `website/downloads/Base-Tele-X-WA.apk`, which the landing page exposes for download. The APK is git-ignored by default to prevent accidentally publishing a Codespaces build; after verifying a build targeted at Render, use `git add -f website/downloads/Base-Tele-X-WA.apk` to include it in the next website deployment. The download stays unavailable until an APK is included. This is a debug-signed test build, not a Play Store release. The wrapper requires an internet connection and the deployed dashboard/API to be available.
 
-To enable pairing, configure `BOT_TOKEN`, `OWNER_TELEGRAM_ID`, and `TELEGRAM_BOT_USERNAME` privately in the service environment. Set the public app domain with BotFather's `/setdomain` command. Do not send bot tokens or WhatsApp pairing codes in chat or commit them to the repository.
+To enable the bot service and signed app sessions, configure `BOT_TOKEN` and `OWNER_TELEGRAM_ID` privately in the service environment. Set `TELEGRAM_BOT_USERNAME` only if you want to show Telegram bot links. BotFather `/setdomain` is not required for app pairing. Do not send bot tokens or WhatsApp pairing codes in chat or commit them to the repository.
 
-Optional landing-page media belongs in `assets/videos/`: use `landing.mp4` for a muted looping background and `music.mp3` for visitor-controlled music. The site works without either file.
+RICHY MD media lives in `assets/videos/`: `app-theme.mp4` is the muted app background, `montagem.mp4` is retained but not displayed on the website, and `music.mp3` is the app soundtrack. The uploaded audio source is retained as `music-source.m4a`. The supplied app icon is in `assets/images/richy-md-icon.png`; optimized copies are used where appropriate. The app attempts to autoplay music; browser policies may require a first tap, while the Android wrapper enables autoplay.
 
 ## Deploy on Render
 
 The repository includes a Render Blueprint (`render.yaml`) and a Dockerfile. The Blueprint uses a free web service with an HTTP health endpoint at `/health`, allowing it to run on Render's Free plan. This is a limited, best-effort setup—not a 24/7 service: Render may spin it down after 15 minutes without inbound traffic, and its filesystem is ephemeral. WhatsApp login files, per-session settings, and Telegram panel data can be lost when the service restarts or spins down, in which case you must pair the WhatsApp number again. Use persistent storage and an always-on paid service if you need reliable sessions and continuous availability.
 
-1. In Render choose **New + → Blueprint** and connect this GitHub repository. Render will read `render.yaml` from the repository root.
-2. Provide `BOT_TOKEN` (from [@BotFather](https://t.me/BotFather)), `OWNER_TELEGRAM_ID` (your numeric Telegram user ID), and `TELEGRAM_BOT_USERNAME` (the bot username without `@`) when prompted. Keep credentials private; do not commit `.env`.
+1. In Render choose **New + → Blueprint** and connect this GitHub repository. Render will read `render.yaml` from the repository root and create the `richy-md` service. Render will assign the service its own URL; do not reuse a deleted service URL or a Codespaces URL.
+2. Provide `BOT_TOKEN` (from [@BotFather](https://t.me/BotFather)) and `OWNER_TELEGRAM_ID` (your numeric Telegram user ID) when prompted. `TELEGRAM_BOT_USERNAME` is optional and only needed to show bot links. Keep credentials private; do not commit `.env`.
 3. Review the Free web service, then apply the Blueprint. The Docker image includes Chromium for animated Telegram-sticker conversion.
-4. Configure the bot's login domain with BotFather's `/setdomain` command, then wait for the deploy to become live. The service URL followed by `/health` should return `ok`; open `/app/` to use the dashboard. Open the Telegram bot and send `/start` to use the bot as well.
+4. Wait for the deploy to become live. The service URL followed by `/health` should return `ok`; open `/app/` to enter your WhatsApp number and request a linking code. Open the Telegram bot and send `/start` to use the bot as well.
 5. Existing WhatsApp sessions on another machine are not included in the GitHub repo and must be paired again.
 6. Automatic deploys are enabled: later pushes to `main` deploy automatically. To trigger a deploy manually, open the Render service and choose **Manual Deploy → Deploy latest commit**.
+7. Optionally add a GitHub Actions repository variable named `RENDER_HEALTH_URL` with the new service's base URL (for example `https://richy-md.onrender.com`) to enable the scheduled health-check workflow. It skips automatically until this variable is configured.
 
 The video and application code are included in the repository; credentials and session files are not. Existing WhatsApp sessions with an older saved menu image setting migrate to the video on first startup; `.setmenuimg` can still enable a custom photo, and `.setmenuimg reset` switches back to the video.

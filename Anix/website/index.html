@@ -4,7 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#080c12">
-    <meta name="description" content="RICHY MD is your Telegram-powered companion for pairing and managing your WhatsApp session.">
+    <meta name="description" content="Pair your WhatsApp number with RICHY MD, get a linking code, and track your connection.">
+    <link rel="icon" href="/app/icon.webp" type="image/webp">
     <title>RICHY MD — Your WhatsApp, connected</title>
     <link rel="stylesheet" href="/styles.css">
     <script src="/site.js" defer></script>
@@ -13,14 +14,13 @@
     <div class="scroll-progress" id="scroll-progress" aria-hidden="true"></div>
     <div class="pointer-glow" id="pointer-glow" aria-hidden="true"></div>
     <div class="backdrop" aria-hidden="true">
-        <video id="background-video" class="backdrop-video" muted loop playsinline></video>
         <div class="backdrop-grid"></div>
         <div class="backdrop-shade"></div>
     </div>
 
     <header class="site-header">
         <a class="brand" href="#top" aria-label="RICHY MD home">
-            <span class="brand-mark"><span>R</span></span>
+            <img class="brand-mark" src="/app/icon.webp" alt="">
             <span>RICHY <strong>MD</strong></span>
         </a>
         <nav class="site-nav" aria-label="Main navigation">
@@ -30,25 +30,21 @@
             <a href="#faq">FAQ</a>
             <a href="#download">Get the app</a>
         </nav>
-        <a class="button button-small button-outline bot-link" data-telegram-link
-           data-ready-label="Try the bot" data-missing-label="Bot link coming soon"
-           aria-disabled="true">Bot link coming soon</a>
+        <a class="button button-small button-outline" href="/app/">Pair WhatsApp</a>
     </header>
 
     <main id="top">
         <section class="hero page-width">
             <div class="hero-copy" data-reveal>
-                <p class="eyebrow"><span class="eyebrow-dot"></span> MEET YOUR TELEGRAM-POWERED COMPANION</p>
+                <p class="eyebrow"><span class="eyebrow-dot"></span> SIMPLE WHATSAPP PAIRING</p>
                 <h1>Your WhatsApp.<br><span>In your control.</span></h1>
                 <p class="hero-description">
-                    Pair your own WhatsApp session and see what matters at a glance:
+                    Enter your WhatsApp number, get a linking code, and see what matters at a glance:
                     connection health, uptime, and pairing activity.
                 </p>
                 <div class="hero-actions">
-                    <a class="button button-primary bot-link" data-telegram-link
-                       data-ready-label="Open RICHY MD on Telegram" data-missing-label="Telegram link coming soon"
-                       aria-disabled="true">Telegram link coming soon <span aria-hidden="true">↗</span></a>
-                    <a class="button button-outline" href="/app/">Explore the dashboard <span aria-hidden="true">↓</span></a>
+                    <a class="button button-primary" href="/app/">Pair your WhatsApp <span aria-hidden="true">↗</span></a>
+                    <a class="button button-outline" href="#how-it-works">How it works <span aria-hidden="true">↓</span></a>
                 </div>
                 <p class="hero-note"><span class="status-dot"></span> Built for pairing and controlling your own WhatsApp session</p>
             </div>
@@ -58,7 +54,7 @@
                 <div class="hero-card" aria-label="Pairing flow preview">
                     <div class="card-topline"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>RICHY MD</span></div>
                     <div class="chat-row">
-                        <div class="bot-avatar" aria-hidden="true">R</div>
+                        <img class="bot-avatar" src="/assets/images/richy-md-icon.png" alt="RICHY MD logo">
                         <div>
                             <p class="chat-title">A clearer view of your connection</p>
                             <p class="chat-copy">Pair once. Keep the important signals close.</p>
@@ -173,7 +169,7 @@
                 <p>RICHY MD guides the pairing request. You stay in control of approving it from WhatsApp.</p>
             </div>
             <ol class="steps">
-                <li data-reveal data-delay="0"><span>01</span><div><h3>Sign in with Telegram</h3><p>Your dashboard is scoped to the Telegram account you authenticate.</p></div></li>
+                <li data-reveal data-delay="0"><span>01</span><div><h3>Enter your number</h3><p>Type your WhatsApp number with its country code in the app.</p></div></li>
                 <li data-reveal data-delay="100"><span>02</span><div><h3>Request a pairing code</h3><p>Enter your number with its country code and receive a short-lived code.</p></div></li>
                 <li data-reveal data-delay="200"><span>03</span><div><h3>Approve in WhatsApp</h3><p>Enter the code in your own WhatsApp app to authorize the connection.</p></div></li>
                 <li data-reveal data-delay="300"><span>04</span><div><h3>Keep an eye on health</h3><p>Return any time to see status, uptime, and recent pairing activity.</p></div></li>
@@ -188,7 +184,7 @@
             <div class="faq-list" data-reveal data-delay="100">
                 <details>
                     <summary>What does the app do?</summary>
-                    <p>It lets you pair and monitor WhatsApp sessions associated with your Telegram sign-in. The dashboard focuses on pairing activity, connection health, uptime, and reconnects.</p>
+                    <p>Enter your WhatsApp number, receive a linking code, then monitor connection health, uptime, and pairing activity.</p>
                 </details>
                 <details>
                     <summary>How do I approve a pairing?</summary>
@@ -200,7 +196,7 @@
                 </details>
                 <details>
                     <summary>Can I use it on mobile?</summary>
-                    <p>Yes. The dashboard is responsive and installable as a web app on supported browsers. An Android APK can be added after the service has its final deployment URL.</p>
+                    <p>Yes. The app is designed for mobile screens and can be installed from a supported browser or as an Android APK.</p>
                 </details>
             </div>
         </section>
@@ -219,12 +215,12 @@
                     </button>
                 </div>
             </div>
-            <p class="download-footnote">Install the web app from your browser menu. The Android APK will be built for the new service URL after deployment.</p>
+            <p class="download-footnote">Enter your number and get a WhatsApp linking code. No account sign-in is needed.</p>
         </section>
     </main>
 
     <footer class="site-footer page-width">
-        <a class="brand" href="#top"><span class="brand-mark"><span>R</span></span><span>RICHY <strong>MD</strong></span></a>
+        <a class="brand" href="#top"><img class="brand-mark" src="/app/icon.webp" alt=""><span>RICHY <strong>MD</strong></span></a>
         <p>Connect with care. Only pair accounts you own or are authorized to use.</p>
         <span class="footer-copy">© <span id="year"></span> RICHY MD</span>
     </footer>

@@ -30,15 +30,54 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.match(pageHtml, /Your WhatsApp\./);
     assert.match(pageHtml, /id="insights"/);
     assert.match(pageHtml, /id="faq"/);
+    assert.doesNotMatch(pageHtml, /<video\b|montagem\.mp4/);
+    assert.match(pageHtml, /Pair WhatsApp/);
     assert.match(pageHtml, /dashboard-showcase/);
     assert.equal(health.status, 200);
     assert.equal(await health.text(), 'ok\n');
     assert.equal(config.status, 200);
     assert.equal(typeof (await config.json()).telegramBotUrl, 'string');
     assert.equal(app.status, 200);
-    assert.match(await app.text(), /Pair a WhatsApp number/);
+    const appHtml = await app.text();
+    assert.match(appHtml, /Pair your WhatsApp/);
+    assert.match(appHtml, /id="pair-form"/);
+    assert.match(appHtml, /id="pairing-code"/);
+    assert.match(appHtml, /app-loading/);
+    assert.match(appHtml, /richy-md-icon\.png/);
+    assert.doesNotMatch(appHtml, /telegram-widget|Sign in with Telegram/);
+    assert.match(appHtml, /assets\/videos\/app-theme\.mp4/);
+    assert.match(appHtml, /assets\/videos\/music\.mp3/);
     assert.equal(manifest.status, 200);
-    assert.equal((await manifest.json()).start_url, '/app/');
+    const appManifest = await manifest.json();
+    assert.equal(appManifest.start_url, '/app/');
+    assert.equal(appManifest.icons[0].src, '/app/icon.webp');
+});
+
+test('health server streams media ranges and serves the optimized app icon', async (t) => {
+    const server = startHealthServer(0);
+    await once(server, 'listening');
+    t.after(() => new Promise((resolve) => server.close(resolve)));
+
+    const baseUrl = `http://127.0.0.1:${server.address().port}`;
+    const [video, audio, icon] = await Promise.all([
+        fetch(`${baseUrl}/assets/videos/app-theme.mp4`, { headers: { Range: 'bytes=0-31' } }),
+        fetch(`${baseUrl}/assets/videos/music.mp3`, { method: 'HEAD' }),
+        fetch(`${baseUrl}/app/icon.webp`, { method: 'HEAD' }),
+    ]);
+
+    assert.equal(video.status, 206);
+    assert.equal(video.headers.get('accept-ranges'), 'bytes');
+    assert.equal(video.headers.get('content-range'), `bytes 0-31/${fs.statSync(path.join(__dirname, '..', 'assets', 'videos', 'app-theme.mp4')).size}`);
+    assert.equal((await video.arrayBuffer()).byteLength, 32);
+    assert.match(audio.headers.get('content-type'), /audio\/mpeg/);
+    assert.equal(audio.headers.get('accept-ranges'), 'bytes');
+    assert.match(icon.headers.get('content-type'), /image\/webp/);
+
+    const invalidRange = await fetch(`${baseUrl}/assets/videos/app-theme.mp4`, {
+        headers: { Range: 'bytes=999999999-' },
+    });
+    assert.equal(invalidRange.status, 416);
+    assert.match(invalidRange.headers.get('content-range'), /^bytes \*\/\d+$/);
 });
 
 test('health server serves an APK when built and reports it missing otherwise', async (t) => {

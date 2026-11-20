@@ -13,6 +13,7 @@ const CONTENT_TYPES = {
     '.jpg': 'image/jpeg',
     '.js': 'text/javascript; charset=utf-8',
     '.json': 'application/json; charset=utf-8',
+    '.m4a': 'audio/mp4',
     '.mp3': 'audio/mpeg',
     '.mp4': 'video/mp4',
     '.png': 'image/png',
@@ -53,6 +54,26 @@ function staticFilePath(pathname) {
     if (relativePath.split(path.sep).some((part) => part.startsWith('.'))) return null;
     if (target !== root && !target.startsWith(`${root}${path.sep}`)) return null;
     return target;
+}
+
+function parseByteRange(header, size) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(header);
+    if (!match || (!match[1] && !match[2])) return null;
+
+    let start;
+    let end;
+    if (!match[1]) {
+        const suffixLength = Number(match[2]);
+        if (!suffixLength) return null;
+        start = Math.max(0, size - suffixLength);
+        end = size - 1;
+    } else {
+        start = Number(match[1]);
+        end = match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+    }
+
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start >= size || end < start) return null;
+    return { start, end };
 }
 
 function startHealthServer(port, appApi) {
@@ -129,11 +150,26 @@ function startHealthServer(port, appApi) {
             }
 
             const extension = path.extname(filePath).toLowerCase();
-            response.writeHead(200, {
+            const supportsRanges = ['.m4a', '.mp3', '.mp4', '.webm'].includes(extension);
+            const rangeHeader = supportsRanges && request.method === 'GET' ? request.headers.range : null;
+            const range = rangeHeader ? parseByteRange(rangeHeader, stats.size) : null;
+            if (rangeHeader && !range) {
+                response.writeHead(416, {
+                    'Accept-Ranges': 'bytes',
+                    'Content-Range': `bytes */${stats.size}`,
+                    'Content-Type': 'text/plain; charset=utf-8',
+                });
+                response.end();
+                return;
+            }
+
+            response.writeHead(range ? 206 : 200, {
                 'Cache-Control': extension === '.apk' ? 'no-store' : 'no-cache',
-                'Content-Length': stats.size,
+                'Content-Length': range ? range.end - range.start + 1 : stats.size,
                 'Content-Type': CONTENT_TYPES[extension] || 'application/octet-stream',
                 'X-Content-Type-Options': 'nosniff',
+                ...(supportsRanges ? { 'Accept-Ranges': 'bytes' } : {}),
+                ...(range ? { 'Content-Range': `bytes ${range.start}-${range.end}/${stats.size}` } : {}),
                 ...(extension === '.apk'
                     ? { 'Content-Disposition': 'attachment; filename="Base-Tele-X-WA.apk"' }
                     : {}),
@@ -144,7 +180,7 @@ function startHealthServer(port, appApi) {
                 return;
             }
 
-            const fileStream = fs.createReadStream(filePath);
+            const fileStream = fs.createReadStream(filePath, range || undefined);
             fileStream.on('error', (streamError) => {
                 console.error(`[http] Failed to serve website file: ${streamError.message}`);
                 if (response.headersSent) response.destroy(streamError);

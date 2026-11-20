@@ -54,7 +54,7 @@ module.exports = {
         for (const s of Object.values(data.sessions)) if (s.telegramChatId) ids.add(s.telegramChatId);
         return [...ids];
     },
-    // number -> { telegramChatId, telegramUserId, connected }
+    // number -> { telegramChatId, telegramUserId, appOwnerId, connected }
     getSession(number) {
         return data.sessions[number];
     },
@@ -67,27 +67,29 @@ module.exports = {
         delete data.sessions[number];
         save();
     },
-    sessionsForUser(telegramUserId) {
+    sessionsForUser(ownerId) {
         return Object.entries(data.sessions)
-            .filter(([, s]) => s.telegramUserId === telegramUserId)
+            .filter(([, s]) => s.appOwnerId === ownerId || s.telegramUserId === ownerId)
             .map(([number, s]) => ({ number, ...s }));
     },
-    recordAppEvent(telegramUserId, type, at = Date.now()) {
+    recordAppEvent(ownerId, type, at = Date.now()) {
         if (!APP_EVENT_TYPES.has(type)) throw new Error(`Unknown app event type: ${type}`);
-        if (!Number.isSafeInteger(telegramUserId) || telegramUserId <= 0 || !Number.isSafeInteger(at)) {
+        const validOwnerId = Number.isSafeInteger(ownerId) && ownerId > 0
+            || typeof ownerId === 'string' && /^[a-f\d]{32}$/i.test(ownerId);
+        if (!validOwnerId || !Number.isSafeInteger(at)) {
             throw new Error('Invalid app event data.');
         }
         const cutoff = Date.now() - 90 * 24 * 60 * 60 * 1000;
         const events = Array.isArray(data.appEvents) ? data.appEvents : [];
         data.appEvents = events
             .filter((event) => Number.isSafeInteger(event.at) && event.at >= cutoff && APP_EVENT_TYPES.has(event.type))
-            .concat({ telegramUserId, type, at })
+            .concat({ ownerId, type, at })
             .slice(-10000);
         save();
     },
-    appEventsForUser(telegramUserId, since = 0) {
+    appEventsForUser(ownerId, since = 0) {
         return (Array.isArray(data.appEvents) ? data.appEvents : [])
-            .filter((event) => event.telegramUserId === telegramUserId
+            .filter((event) => (event.ownerId ?? event.telegramUserId) === ownerId
                 && Number.isSafeInteger(event.at)
                 && event.at >= since
                 && APP_EVENT_TYPES.has(event.type));

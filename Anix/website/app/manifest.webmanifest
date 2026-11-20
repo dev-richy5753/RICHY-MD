@@ -2,7 +2,7 @@
   "id": "/app/",
   "name": "RICHY MD",
   "short_name": "RICHY MD",
-  "description": "WhatsApp pairings and connection analytics",
+  "description": "Pair your WhatsApp number and get a linking code",
   "start_url": "/app/",
   "scope": "/app/",
   "display": "standalone",
@@ -10,10 +10,16 @@
   "theme_color": "#050608",
   "icons": [
     {
-      "src": "/app/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "src": "/app/icon.webp",
+      "sizes": "512x512",
+      "type": "image/webp",
+      "purpose": "any"
+    },
+    {
+      "src": "/app/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }

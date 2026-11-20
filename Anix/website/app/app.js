@@ -1,11 +1,58 @@
 const notice = document.querySelector('#notice');
-const signIn = document.querySelector('#sign-in');
+const appLoading = document.querySelector('#app-loading');
 const dashboard = document.querySelector('#dashboard');
-const widgetHost = document.querySelector('#telegram-widget');
 const sessionList = document.querySelector('#session-list');
+const themeAudio = document.querySelector('#theme-audio');
+const themeAudioButton = document.querySelector('#theme-audio-button');
+const themeAudioLabel = document.querySelector('#theme-audio-label');
 let refreshTimer;
 let installPrompt;
-let telegramBotUsername = '';
+
+function updateThemeAudioButton(isPlaying) {
+    themeAudioButton.setAttribute('aria-pressed', String(isPlaying));
+    themeAudioButton.setAttribute('aria-label', `${isPlaying ? 'Pause' : 'Play'} RICHY MD soundtrack`);
+    themeAudioLabel.textContent = isPlaying ? 'Pause soundtrack' : 'Play soundtrack';
+}
+
+themeAudioButton.addEventListener('click', async () => {
+    if (!themeAudio.paused) {
+        themeAudio.pause();
+        return;
+    }
+
+    try {
+        await themeAudio.play();
+    } catch (error) {
+        console.error('[app] Could not play the RICHY MD soundtrack:', error);
+        showNotice('The soundtrack could not be played. Try again after checking your device audio settings.', 'error');
+    }
+});
+
+themeAudio.addEventListener('play', () => updateThemeAudioButton(true));
+themeAudio.addEventListener('pause', () => updateThemeAudioButton(false));
+themeAudio.volume = 0.3;
+themeAudio.play().catch((error) => {
+    console.info('[app] Sound autoplay was blocked; it will retry after the first interaction:', error);
+});
+const resumeAudioAfterInteraction = (event) => {
+    if (event.target.closest?.('#theme-audio-button')) return;
+    if (themeAudio.paused) {
+        themeAudio.play().catch((error) => console.info('[app] Sound playback needs a tap:', error));
+    }
+};
+window.addEventListener('pointerdown', resumeAudioAfterInteraction, { once: true });
+window.addEventListener('keydown', resumeAudioAfterInteraction, { once: true });
+
+const themeVideo = document.querySelector('#app-theme-video');
+if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    themeVideo.addEventListener('canplay', () => themeVideo.classList.add('is-ready'), { once: true });
+    themeVideo.play().catch((error) => console.warn('[app] The background theme video could not autoplay:', error));
+}
+
+function setAppLoading(isLoading) {
+    appLoading.hidden = !isLoading;
+    dashboard.hidden = isLoading;
+}
 
 function showNotice(message, tone = 'info') {
     notice.textContent = message;
@@ -36,28 +83,6 @@ async function api(path, options = {}) {
     return result;
 }
 
-function loadTelegramWidget(username) {
-    window.onTelegramAuth = async (user) => {
-        hideNotice();
-        try {
-            await api('/api/auth/telegram', { method: 'POST', body: JSON.stringify(user) });
-            await openDashboard(user);
-        } catch (error) {
-            showNotice(error.message, 'error');
-        }
-    };
-
-    const script = document.createElement('script');
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.async = true;
-    script.dataset.telegramLogin = username;
-    script.dataset.size = 'large';
-    script.dataset.radius = '10';
-    script.dataset.onauth = 'onTelegramAuth(user)';
-    script.addEventListener('error', () => showNotice('Could not load Telegram sign-in. Please check your connection and try again.', 'error'));
-    widgetHost.replaceChildren(script);
-}
-
 function formatDuration(milliseconds) {
     const minutes = Math.floor(Math.max(0, milliseconds) / 60000);
     const days = Math.floor(minutes / 1440);
@@ -84,6 +109,19 @@ function statusLabel(status) {
 function renderSessions(sessions) {
     sessionList.replaceChildren();
     document.querySelector('#empty-state').hidden = sessions.length > 0;
+    const pairingResult = document.querySelector('#pairing-result');
+    const pairingLabel = document.querySelector('#pairing-result-label');
+    const pairingCode = document.querySelector('#pairing-code');
+    const pairingInstructions = document.querySelector('#pairing-instructions');
+    const newest = [...sessions].sort((left, right) => (right.createdAt || 0) - (left.createdAt || 0))[0];
+
+    pairingResult.hidden = !newest || !['connecting', 'awaiting_pairing'].includes(newest.status);
+    pairingResult.classList.toggle('is-waiting', newest?.status === 'connecting');
+    pairingLabel.textContent = newest?.pairingCode ? 'YOUR WHATSAPP LINKING CODE' : 'REQUESTING YOUR LINKING CODE';
+    pairingCode.textContent = newest?.pairingCode || '';
+    pairingInstructions.textContent = newest?.pairingCode
+        ? 'On WhatsApp, open Linked devices → Link a device → Link with phone number instead.'
+        : 'Keep this screen open. Your code will appear here as soon as WhatsApp issues it.';
 
     for (const session of sessions) {
         const card = document.createElement('article');
@@ -191,27 +229,22 @@ async function refreshDashboard(showErrors = true) {
     } catch (error) {
         if (error.status === 401) {
             clearTimeout(refreshTimer);
-            dashboard.hidden = true;
-            signIn.hidden = false;
-            if (telegramBotUsername) loadTelegramWidget(telegramBotUsername);
-            showNotice('Your sign-in expired. Sign in with Telegram again.', 'error');
+            try {
+                await api('/api/app-session', { method: 'POST' });
+                await refreshDashboard(false);
+            } catch (sessionError) {
+                showNotice(sessionError.message, 'error');
+            }
             return;
         }
         if (showErrors) showNotice(error.message, 'error');
     }
 }
 
-async function openDashboard(user) {
-    signIn.hidden = true;
-    dashboard.hidden = false;
-    const fullName = user.first_name || user.firstName || user.username || 'Telegram user';
-    document.querySelector('#account-name').textContent = user.username ? `${fullName} (@${user.username})` : fullName;
-    await refreshDashboard();
-}
-
 async function deleteSession(number, button) {
     if (!window.confirm(`Remove the WhatsApp session ending in ${String(number).slice(-4)}? This will unlink it from this server.`)) return;
     button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
     hideNotice();
     try {
         await api(`/api/sessions/${encodeURIComponent(number)}`, { method: 'DELETE' });
@@ -219,6 +252,7 @@ async function deleteSession(number, button) {
         showNotice('Session removed.', 'success');
     } catch (error) {
         button.disabled = false;
+        button.removeAttribute('aria-busy');
         showNotice(error.message, 'error');
     }
 }
@@ -227,7 +261,11 @@ document.querySelector('#pair-form').addEventListener('submit', async (event) =>
     event.preventDefault();
     const input = document.querySelector('#phone-number');
     const button = document.querySelector('#pair-button');
+    const label = button.querySelector('.button-label');
     button.disabled = true;
+    button.classList.add('is-loading');
+    button.setAttribute('aria-busy', 'true');
+    label.textContent = 'Requesting code';
     hideNotice();
     try {
         await api('/api/sessions', {
@@ -235,28 +273,19 @@ document.querySelector('#pair-form').addEventListener('submit', async (event) =>
             body: JSON.stringify({ number: input.value }),
         });
         input.value = '';
-        showNotice('Pairing started. Your code will appear with the session in a moment.', 'success');
+        showNotice('Pairing started. Keep this screen open while WhatsApp prepares your code.', 'success');
         await refreshDashboard(false);
     } catch (error) {
         showNotice(error.message, 'error');
     } finally {
         button.disabled = false;
+        button.classList.remove('is-loading');
+        button.removeAttribute('aria-busy');
+        label.textContent = 'Get pairing code';
     }
 });
 
 document.querySelector('#refresh-button').addEventListener('click', () => refreshDashboard());
-document.querySelector('#logout-button').addEventListener('click', async () => {
-    try {
-        await api('/api/auth/logout', { method: 'POST' });
-        clearTimeout(refreshTimer);
-        dashboard.hidden = true;
-        signIn.hidden = false;
-        if (telegramBotUsername) loadTelegramWidget(telegramBotUsername);
-        showNotice('You have signed out.', 'success');
-    } catch (error) {
-        showNotice(error.message, 'error');
-    }
-});
 
 document.querySelector('#install-button').addEventListener('click', async () => {
     if (!installPrompt) return;
@@ -284,20 +313,11 @@ async function initialize() {
         });
     }
     try {
-        const config = await api('/api/config');
-        if (!config.loginEnabled || !config.telegramBotUsername) {
-            showNotice('Telegram sign-in is not configured yet. Set TELEGRAM_BOT_USERNAME on the server and configure the bot domain with BotFather.');
-            return;
-        }
-        telegramBotUsername = config.telegramBotUsername;
-        const result = await api('/api/me');
-        await openDashboard(result.user);
+        await api('/api/app-session', { method: 'POST' });
+        setAppLoading(false);
+        await refreshDashboard();
     } catch (error) {
-        if (error.message.includes('Sign in with Telegram')) {
-            signIn.hidden = false;
-            loadTelegramWidget(telegramBotUsername);
-            return;
-        }
+        setAppLoading(false);
         showNotice(error.message, 'error');
     }
 }

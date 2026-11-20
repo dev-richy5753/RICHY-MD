@@ -39,14 +39,14 @@ function createStore() {
         },
         deleteSession: (number) => sessions.delete(number),
         sessionsForUser(userId) {
-            return [...sessions].filter(([, session]) => session.telegramUserId === userId)
+            return [...sessions].filter(([, session]) => session.appOwnerId === userId || session.telegramUserId === userId)
                 .map(([number, session]) => ({ number, ...session }));
         },
         recordAppEvent(telegramUserId, type, at = Date.now()) {
-            events.push({ telegramUserId, type, at });
+            events.push({ ownerId: telegramUserId, type, at });
         },
         appEventsForUser(userId, since = 0) {
-            return events.filter((event) => event.telegramUserId === userId && event.at >= since);
+            return events.filter((event) => (event.ownerId ?? event.telegramUserId) === userId && event.at >= since);
         },
     };
 }
@@ -126,7 +126,7 @@ test('Telegram login verifies the Bot API signature and freshness', () => {
 test('pairing sessions and analytics are isolated to the signed-in Telegram user', async (t) => {
     const { baseUrl, engine } = await createApiServer(t);
     const config = await fetch(`${baseUrl}/api/config`).then((response) => response.json());
-    assert.deepEqual(config, { telegramBotUsername: 'richy_md_bot', loginEnabled: true });
+    assert.deepEqual(config, { appEnabled: true });
 
     const unauthenticated = await fetch(`${baseUrl}/api/sessions`);
     assert.equal(unauthenticated.status, 401);
@@ -206,4 +206,59 @@ test('pairing API rejects cross-origin requests and invalid phone numbers', asyn
         body: JSON.stringify({ number: '123' }),
     });
     assert.equal(invalidNumber.status, 400);
+});
+
+test('the app can pair without Telegram and keeps browser sessions isolated', async (t) => {
+    const { baseUrl, engine } = await createApiServer(t);
+    const startSession = (origin = baseUrl) => fetch(`${baseUrl}/api/app-session`, {
+        method: 'POST',
+        headers: { Origin: origin },
+    });
+    const firstInit = await startSession();
+    assert.equal(firstInit.status, 200);
+    assert.match(firstInit.headers.get('set-cookie'), /HttpOnly; SameSite=Lax/);
+    const firstCookie = firstInit.headers.get('set-cookie').split(';')[0];
+
+    const number = '14155550123';
+    const pair = await fetch(`${baseUrl}/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: baseUrl, Cookie: firstCookie },
+        body: JSON.stringify({ number }),
+    });
+    assert.equal(pair.status, 202);
+    engine.callbacks.get(number).onPairingCode('ABCD-EFGH');
+
+    const reusedInit = await fetch(`${baseUrl}/api/app-session`, {
+        method: 'POST',
+        headers: { Origin: baseUrl, Cookie: firstCookie },
+    });
+    assert.equal(reusedInit.status, 200);
+    assert.equal(reusedInit.headers.get('set-cookie'), null);
+
+    const ownSessions = await fetch(`${baseUrl}/api/sessions`, {
+        headers: { Cookie: firstCookie },
+    }).then((response) => response.json());
+    assert.equal(ownSessions.sessions[0].pairingCode, 'ABCD-EFGH');
+
+    const secondInit = await startSession();
+    const secondCookie = secondInit.headers.get('set-cookie').split(';')[0];
+    const otherSessions = await fetch(`${baseUrl}/api/sessions`, {
+        headers: { Cookie: secondCookie },
+    }).then((response) => response.json());
+    assert.deepEqual(otherSessions.sessions, []);
+    const otherDelete = await fetch(`${baseUrl}/api/sessions/${number}`, {
+        method: 'DELETE',
+        headers: { Origin: baseUrl, Cookie: secondCookie },
+    });
+    assert.equal(otherDelete.status, 404);
+    const otherPair = await fetch(`${baseUrl}/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: baseUrl, Cookie: secondCookie },
+        body: JSON.stringify({ number }),
+    });
+    assert.equal(otherPair.status, 409);
+
+    const crossOrigin = await startSession('https://other.example');
+    assert.equal(crossOrigin.status, 403);
+    assert.equal((await fetch(`${baseUrl}/api/sessions`)).status, 401);
 });

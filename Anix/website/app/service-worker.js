@@ -1,10 +1,12 @@
-const CACHE_NAME = 'richy-md-app-shell-v2';
+const CACHE_NAME = 'richy-md-app-shell-v4';
 const APP_SHELL = [
     '/app/',
     '/app/app.css',
     '/app/app.js',
     '/app/manifest.webmanifest',
-    '/app/icon.svg',
+    '/app/icon-512.png',
+    '/app/icon.webp',
+    '/assets/images/richy-md-icon.png',
 ];
 
 self.addEventListener('install', (event) => {

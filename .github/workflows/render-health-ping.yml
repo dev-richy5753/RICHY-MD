@@ -7,7 +7,13 @@ on:
 
 jobs:
   ping:
+    if: ${{ vars.RENDER_HEALTH_URL != '' }}
     runs-on: ubuntu-latest
+    env:
+      RENDER_HEALTH_URL: ${{ vars.RENDER_HEALTH_URL }}
     steps:
+      - name: Validate Render URL
+        run: |
+          node -e 'const url = new URL(process.env.RENDER_HEALTH_URL); if (url.protocol !== "https:" || !url.hostname.endsWith(".onrender.com") || url.pathname !== "/" || url.search || url.hash) process.exit(1)'
       - name: Request Render health endpoint
-        run: curl --fail --silent --show-error --max-time 30 --retry 2 --retry-delay 5 https://base-tele-x-wa.onrender.com/health
+        run: curl --fail --silent --show-error --max-time 30 --retry 2 --retry-delay 5 "${RENDER_HEALTH_URL%/}/health"

@@ -123,7 +123,9 @@ function verifySession(token, secret, now = Date.now()) {
 
     try {
         const user = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-        if (!Number.isSafeInteger(user.id) || user.id <= 0 || !Number.isSafeInteger(user.exp)) return null;
+        const validId = Number.isSafeInteger(user.id) && user.id > 0
+            || typeof user.id === 'string' && /^[a-f\d]{32}$/i.test(user.id);
+        if (!validId || !Number.isSafeInteger(user.exp)) return null;
         if (user.exp <= Math.floor(now / 1000)) return null;
         return { id: user.id, firstName: user.firstName || '', username: user.username || '' };
     } catch {
@@ -226,9 +228,34 @@ function createAppApi({ botToken, botUsername, store, engine }) {
         try {
             if (pathname === '/api/config' && request.method === 'GET') {
                 return sendJson(response, 200, {
-                    telegramBotUsername: username,
-                    loginEnabled: Boolean(botToken && username),
+                    appEnabled: Boolean(secret),
                 });
+            }
+
+            if (pathname === '/api/app-session' && request.method === 'POST') {
+                assertSameOrigin(request);
+                if (!secret) throw new ApiError(503, 'The pairing app is not configured yet.');
+
+                const cookies = parseCookies(request.headers.cookie);
+                let appUser = verifySession(cookies[COOKIE_NAME], secret);
+                let headers = {};
+                if (!appUser) {
+                    appUser = {
+                        id: crypto.randomBytes(16).toString('hex'),
+                        firstName: 'RICHY MD user',
+                        username: '',
+                    };
+                    const token = signSession(appUser, secret);
+                    const secure = process.env.NODE_ENV === 'production'
+                        || request.socket.encrypted
+                        || request.headers['x-forwarded-proto'] === 'https'
+                        ? '; Secure'
+                        : '';
+                    headers = {
+                        'Set-Cookie': `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${TOKEN_MAX_AGE_SECONDS}${secure}`,
+                    };
+                }
+                return sendJson(response, 200, { ok: true }, headers);
             }
 
             if (pathname === '/api/auth/telegram' && request.method === 'POST') {
@@ -257,7 +284,7 @@ function createAppApi({ botToken, botUsername, store, engine }) {
             const cookies = parseCookies(request.headers.cookie);
             const user = secret ? verifySession(cookies[COOKIE_NAME], secret) : null;
             if (pathname === '/api/me' && request.method === 'GET') {
-                if (!user) throw new ApiError(401, 'Sign in with Telegram to continue.');
+                if (!user) throw new ApiError(401, 'Initialize the pairing app to continue.');
                 return sendJson(response, 200, { user });
             }
             if (!user) throw new ApiError(401, 'Sign in with Telegram to continue.');
@@ -302,8 +329,9 @@ function createAppApi({ botToken, botUsername, store, engine }) {
                 if (store.isMaintenance?.()) throw new ApiError(503, 'Pairing is paused for maintenance.');
 
                 const existing = store.getSession(number);
-                if (existing && existing.telegramUserId !== user.id) {
-                    throw new ApiError(409, 'This number is already managed by another account.');
+                const existingOwnerId = existing?.appOwnerId ?? existing?.telegramUserId;
+                if (existing && existingOwnerId !== user.id) {
+                    throw new ApiError(409, 'This number already has a saved session.');
                 }
                 if (engine.isRunning(number) || engine.isPaired(number)) {
                     throw new ApiError(409, 'This number already has a saved session. Refresh your sessions list.');
@@ -321,7 +349,7 @@ function createAppApi({ botToken, botUsername, store, engine }) {
                     }
 
                     store.setSession(number, {
-                        telegramUserId: user.id,
+                        appOwnerId: user.id,
                         appOwned: true,
                         connected: false,
                         pairingState: 'connecting',
@@ -459,7 +487,8 @@ function createAppApi({ botToken, botUsername, store, engine }) {
                 assertSameOrigin(request);
                 const number = deleteMatch[1];
                 const session = store.getSession(number);
-                if (!session || session.telegramUserId !== user.id) {
+                const ownerId = session?.appOwnerId ?? session?.telegramUserId;
+                if (!session || ownerId !== user.id) {
                     throw new ApiError(404, 'Session not found.');
                 }
                 clearPairingCodeTimer(number);

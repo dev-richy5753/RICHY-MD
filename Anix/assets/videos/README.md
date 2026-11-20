@@ -1,8 +1,10 @@
-# Landing page media
+# RICHY MD media
 
-Optional landing-page media files can be dropped into this folder:
+Media used by the RICHY MD site and app:
 
-- `landing.mp4` — muted, looping background video
-- `music.mp3` — optional music, started only when a visitor presses the sound button
+- `app-theme.mp4` — muted, looping, monochrome background for the app
+- `montagem.mp4` — uploaded source video, retained but not shown on the website
+- `music.mp3` — soundtrack that the app attempts to autoplay; browser autoplay policies may require the first tap
+- `music-source.m4a` — original uploaded audio, retained unchanged
 
-The page uses its built-in gradient background when no video is present. Keep the files reasonably small for faster page loads.
+The website has no video playback. The app keeps its black/neon styling if optional media cannot load.
