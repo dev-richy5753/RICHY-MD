@@ -7,6 +7,7 @@ const { Telegraf } = require('telegraf');
 const store = require('./store');
 const { startSession, removeSession, isPaired, isRunning, isConnected, listSavedSessionIds, sendToSelf } = require('../src/session');
 const config = require('../src/config');
+const { loadMenuAsset } = require('../src/lib/menu-assets');
 const gate = require('./gate');
 const { createDoc, notice, sendDoc, editDoc, cb, link, copy, kb, esc, tg } = require('./ui');
 
@@ -198,7 +199,7 @@ const sendMenu = async (ctx) => {
     const sendPhoto = (image) => {
         const photo = /^https?:\/\//i.test(image)
             ? { url: image }
-            : { source: fs.createReadStream(image), filename: path.basename(image) };
+            : { source: loadMenuAsset(image), filename: path.basename(image) };
         return ctx.telegram.sendPhoto(ctx.chat.id, photo, photoOptions);
     };
     let sent;
@@ -229,7 +230,7 @@ const sendMenu = async (ctx) => {
     try {
         await ctx.telegram.sendAudio(
             ctx.chat.id,
-            { source: fs.createReadStream(MENU_AUDIO_PATH), filename: path.basename(MENU_AUDIO_PATH) },
+            { source: loadMenuAsset(MENU_AUDIO_PATH), filename: path.basename(MENU_AUDIO_PATH) },
             { title: 'Menu soundtrack' }
         );
     } catch (err) {

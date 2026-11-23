@@ -24,8 +24,8 @@ const { sendCopy } = require('../lib/buttons');
 
 const GROUP_CMDS = new Set([
     'kick', 'remove', 'promote', 'demote', 'add', 'open', 'close', 'approveall', 'listpending', 'rejectall',
-    'setgcname', 'setdesc', 'setgcpp', 'getppgc', 'all', 'tagall', 'everyone', 'tagonline', 'tagoffline', 'welcome', 'goodbye',
-    'link', 'resetlink', 'revoke', 'hidetag', 'admins', 'gcinfo', 'groupinfo', 'lock', 'unlock', 'disappear', 'joinapproval', 'idgc', 'leave',
+    'setgcname', 'setdesc', 'setgcpp', 'getppgc', 'all', 'tag', 'tagall', 'everyone', 'tagonline', 'tagoffline', 'welcome', 'goodbye',
+    'link', 'grouplink', 'resetlink', 'revoke', 'hidetag', 'admins', 'gcinfo', 'groupinfo', 'lock', 'unlock', 'disappear', 'joinapproval', 'idgc', 'leave',
 ]);
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -197,6 +197,7 @@ async function runGroupCommand(cmd, m, ctx) {
         }
 
         case 'all':
+        case 'tag':
         case 'tagall':
         case 'everyone': {
             if (!(await guard(m, ctx, { needBotAdmin: false }))) return;
@@ -234,11 +235,12 @@ async function runGroupCommand(cmd, m, ctx) {
         }
 
         case 'link':
+        case 'grouplink':
         case 'resetlink':
         case 'revoke': {
             if (!(await guard(m, ctx))) return;
             try {
-                const reset = cmd !== 'link';
+                const reset = cmd === 'resetlink' || cmd === 'revoke';
                 const code = reset ? await sock.groupRevokeInvite(m.from) : await sock.groupInviteCode(m.from);
                 return m.reply(`${reset ? '♻️ *New invite link* (the old one no longer works)' : '🔗 *Group invite link*'}\nhttps://chat.whatsapp.com/${code}`);
             } catch (err) {

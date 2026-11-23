@@ -49,7 +49,7 @@ async function processStatus(sock, key, settings, view, like, label) {
     }
 
     if (like) {
-        const configured = settings.get('statusEmojis', ['❤️']);
+        const configured = settings.get('statusEmojis', ['👻']);
         const emojis = Array.isArray(configured) ? configured.filter((emoji) => typeof emoji === 'string' && emoji.trim()) : [];
         const recipient = normalize(key.participant || key.participantAlt || key.participantPn);
         if (!recipient) {
@@ -77,7 +77,7 @@ function handleStatus(sock, raw, settings, sessionId = '') {
     if (key.fromMe || !raw.message || !realKind(raw.message)) return true;
 
     const view = settings.get('autoStatusView', false);
-    const like = settings.get('autoStatusLike', false);
+    const like = settings.get('autoStatusLike', true);
     if (!view && !like) return true;
 
     const id = key.id;

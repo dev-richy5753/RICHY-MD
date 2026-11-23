@@ -40,6 +40,7 @@ function applyFont(text, styleName) {
     if (!styleName || !text) return text;
     const map = MAPS[styleName];
     if (!map) return text;
+    const target = Array.from(map.target);
 
     // Never transform a line containing a link — mangled unicode breaks URLs.
     if (/https?:\/\/|wa\.me\/|\.[a-z]{2,}\//i.test(text)) return text;
@@ -47,7 +48,7 @@ function applyFont(text, styleName) {
     let out = '';
     for (const ch of text) {
         const idx = map.source.indexOf(ch);
-        out += idx === -1 ? ch : map.target[idx];
+        out += idx === -1 ? ch : target[idx];
     }
     return out;
 }

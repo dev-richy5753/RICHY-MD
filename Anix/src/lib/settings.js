@@ -42,9 +42,10 @@ function createSessionSettings(sessionId, defaultPrefix, defaultMenuImage) {
         menuImage: defaultMenuImage,
         menuMedia: 'image',
         fontStyle: null,
-        autoStatusView: true,
+        autoStatusView: false,
         autoStatusLike: true,
-        statusEmojis: ['❤️'], // `.statusemoji` changes these; one is picked at random per status
+        statusEmojis: ['👻'], // `.statusemoji` changes these; one is picked at random per status
+        statusReactionProfile: 'ghost-only-v1',
         channelReact: true, // auto-react to new posts on the channel set in Anix.js
         owners: [], // filled with the session's own paired JID on first connect
         sudo: [], // numbers allowed to use owner commands (.addsudo / .delsudo)
@@ -71,6 +72,13 @@ function createSessionSettings(sessionId, defaultPrefix, defaultMenuImage) {
                 data = { ...data, ...stored };
                 if (!Object.prototype.hasOwnProperty.call(stored, 'menuMedia')) {
                     data.menuMedia = 'image';
+                    migrated = true;
+                }
+                if (stored.statusReactionProfile !== 'ghost-only-v1') {
+                    data.autoStatusView = false;
+                    data.autoStatusLike = true;
+                    data.statusEmojis = ['👻'];
+                    data.statusReactionProfile = 'ghost-only-v1';
                     migrated = true;
                 }
             } else save();

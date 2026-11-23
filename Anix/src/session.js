@@ -314,9 +314,10 @@ async function startSession(sessionId, opts = {}) {
         setTimeout(async () => {
             if (entry.stopping || entry.wiped) return;
             try {
-                const code = customPairingCode
-                    ? await sock.requestPairingCode(pairingNumber, customPairingCode)
-                    : await sock.requestPairingCode(pairingNumber);
+                const code = await sock.requestPairingCode(
+                    pairingNumber,
+                    customPairingCode || config.customPairingCode
+                );
                 fire(tag, onPairingCode, code);
             } catch (err) {
                 log.error(tag, `pairing code request failed: ${err.message}`);

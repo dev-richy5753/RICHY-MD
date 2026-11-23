@@ -97,6 +97,39 @@ test('new status view and reaction are started immediately and reaction targets 
     assert.equal(calls.length, 2);
 });
 
+test('ghost status reactions are immediate and do not mark statuses viewed', () => {
+    const calls = [];
+    const key = {
+        remoteJid: 'status@broadcast',
+        id: `ghost-status-${Date.now()}`,
+        participant: '12345@s.whatsapp.net',
+    };
+    const sock = {
+        readMessages() {
+            calls.push('view');
+            return Promise.resolve();
+        },
+        sendMessage(...args) {
+            calls.push(['like', args]);
+            return Promise.resolve();
+        },
+    };
+    const settings = {
+        get(name, fallback) {
+            return ({
+                autoStatusView: false,
+                autoStatusLike: true,
+                statusEmojis: ['👻'],
+            })[name] ?? fallback;
+        },
+    };
+
+    assert.equal(handleStatus(sock, { key, message: { conversation: 'status text' } }, settings, 'ghost-session'), true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0][0], 'like');
+    assert.deepEqual(calls[0][1][1].react, { text: '👻', key });
+});
+
 test('serializer recognizes text wrapped in an ephemeral message', () => {
     const message = {
         key: { remoteJid: '12345@s.whatsapp.net', id: 'wrapped-message', fromMe: false },

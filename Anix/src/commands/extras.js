@@ -11,6 +11,31 @@ const MAX_REMINDER_MS = 30 * 24 * 60 * 60 * 1000;
 const MAX_TIMEOUT_MS = 2_147_000_000;
 const MAX_STICKER_INPUT_BYTES = 20 * 1024 * 1024;
 const MAX_STICKER_BYTES = 1024 * 1024;
+const PASSWORD_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%&*+-_';
+const hangmanWords = ['anime', 'waffle', 'galaxy', 'computer', 'rainbow', 'whatsapp', 'developer'];
+const wouldYouRather = [
+    'Would you rather explore the ocean or outer space?',
+    'Would you rather always be five minutes early or ten minutes late?',
+    'Would you rather have a pause button or a rewind button for your life?',
+    'Would you rather travel anywhere for free or eat anywhere for free?',
+    'Would you rather give up music or movies for a year?',
+];
+
+function generatePassword(length) {
+    return Array.from({ length }, () => PASSWORD_CHARS[crypto.randomInt(PASSWORD_CHARS.length)]).join('');
+}
+
+function formatAnimeCharacter(character) {
+    const profile = character.attributes || character;
+    const url = profile.slug ? `https://kitsu.io/characters/${profile.slug}` : profile.url;
+    return `🌸 *${profile.name || character.name}*\nProfile: ${url}`;
+}
+
+function hangmanStatus(game) {
+    const word = Array.from(game.word, (letter) => game.guessed.includes(letter) ? letter : '_').join(' ');
+    const remaining = 6 - game.wrong.length;
+    return `🎯 *Hangman*\n${word}\nWrong guesses: ${game.wrong.join(', ') || 'none'}\nTries left: ${remaining}`;
+}
 
 function parseDuration(value) {
     const match = String(value || '').match(/^(\d+)(s|m|h|d)$/i);
@@ -169,6 +194,48 @@ const jokes = [
     'Why did the phone wear glasses? It lost its contacts.',
     'My calendar and I are done. Its days are numbered.',
 ];
+const dadJokes = [
+    'Why don’t eggs tell jokes? They’d crack each other up.',
+    'What do you call fake spaghetti? An impasta.',
+    'I know only 25 letters of the alphabet. I don’t know y.',
+    'Why did the scarecrow win an award? He was outstanding in his field.',
+    'Why can’t a bicycle stand on its own? It’s two-tired.',
+    'What cheese isn’t yours? Nacho cheese.',
+    'I heard the restaurant on the moon has great food, but no atmosphere.',
+    'I used to play piano by ear. Now I use my hands.',
+    'Why did the coffee call the police? It got mugged.',
+    'Why do bees have sticky hair? They use honeycombs.',
+    'What do you call a fish wearing a bow tie? Sofishticated.',
+    'I ordered a chicken and an egg online. I’ll let you know which arrives first.',
+    'Why was the math book sad? It had too many problems.',
+    'What do you call a factory that makes okay products? A satisfactory.',
+    'Why did the tomato blush? It saw the salad dressing.',
+    'What do you call a dinosaur with a big vocabulary? A thesaurus.',
+    'Why did the cookie go to the doctor? It felt crummy.',
+    'Why did the golfer bring an extra pair of pants? In case he got a hole in one.',
+    'I told my wife to embrace her mistakes. She gave me a hug.',
+    'What do you call a bear with no teeth? A gummy bear.',
+    'How do you organize a space party? You planet.',
+    'Why couldn’t the pony sing? It was a little hoarse.',
+    'What did the ocean say to the beach? Nothing, it just waved.',
+    'Why did the banana go to the doctor? It wasn’t peeling well.',
+    'What kind of shoes do ninjas wear? Sneakers.',
+    'What did zero say to eight? Nice belt!',
+    'Why don’t skeletons fight each other? They don’t have the guts.',
+    'Why was the belt arrested? It was holding up a pair of pants.',
+    'What do you call a sleeping bull? A bulldozer.',
+    'What’s orange and sounds like a parrot? A carrot.',
+    'What did the grape say when it got stepped on? Nothing, it just let out a little wine.',
+    'Why did the picture go to jail? It was framed.',
+    'How do trees get online? They log in.',
+    'What do you call an alligator in a vest? An investigator.',
+    'Why was the broom late? It swept in.',
+    'What do you call a mountain of cats? A meow-tain.',
+    'Why did the stadium get hot after the game? All the fans left.',
+    'What kind of tea is hard to swallow? Reality.',
+    'The left eye said to the right eye, “Between us, something smells.”',
+    'Why don’t oysters share? Because they’re shellfish.',
+];
 const facts = [
     'A day on Venus is longer than its year.',
     'Octopuses have three hearts.',
@@ -277,9 +344,58 @@ async function runExtraCommand(cmd, m, { args, sock, session, owner, getQuotedMe
             await m.reply(`😄 ${randomItem(jokes)}`);
             return true;
 
+        case 'dadjoke':
+            await m.reply(`👨 ${randomItem(dadJokes)}`);
+            return true;
+
         case 'fact':
             await m.reply(`🧠 ${randomItem(facts)}`);
             return true;
+
+        case 'wyr':
+            await m.reply(`🤔 ${randomItem(wouldYouRather)}`);
+            return true;
+
+        case 'hangman': {
+            const game = activeGames.get(m.from);
+            const guess = text.toLowerCase();
+            if (!guess) {
+                const word = randomItem(hangmanWords);
+                activeGames.set(m.from, { type: 'hangman', word, guessed: [], wrong: [] });
+                await m.reply(`${hangmanStatus(activeGames.get(m.from))}\nGuess one letter with .hangman <letter>. Use .hangman quit to stop.`);
+                return true;
+            }
+            if (guess === 'quit') {
+                if (game?.type === 'hangman') activeGames.delete(m.from);
+                await m.reply(game?.type === 'hangman' ? `Round ended. The word was *${game.word}*.` : 'There is no Hangman round to stop.');
+                return true;
+            }
+            if (!game || game.type !== 'hangman') {
+                await m.reply('Start a round first with .hangman');
+                return true;
+            }
+            if (!/^[a-z]$/.test(guess)) {
+                await m.reply('Guess one letter at a time, or use .hangman quit.');
+                return true;
+            }
+            if (game.guessed.includes(guess) || game.wrong.includes(guess)) {
+                await m.reply(`You already tried "${guess}".\n${hangmanStatus(game)}`);
+                return true;
+            }
+            if (game.word.includes(guess)) game.guessed.push(guess);
+            else game.wrong.push(guess);
+            const solved = Array.from(game.word).every((letter) => game.guessed.includes(letter));
+            if (solved) {
+                activeGames.delete(m.from);
+                await m.reply(`🎉 You got it! The word was *${game.word}*.`);
+            } else if (game.wrong.length >= 6) {
+                activeGames.delete(m.from);
+                await m.reply(`Game over. The word was *${game.word}*.`);
+            } else {
+                await m.reply(hangmanStatus(game));
+            }
+            return true;
+        }
 
         case 'quote':
             await m.reply(`💬 “${randomItem(quotes)}”`);
@@ -441,6 +557,138 @@ async function runExtraCommand(cmd, m, { args, sock, session, owner, getQuotedMe
             return true;
         }
 
+        case 'wiki': {
+            if (!text || text.length > 100) {
+                await m.reply('Usage: .wiki <topic>');
+                return true;
+            }
+            try {
+                const page = await fetchJson(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(text.replace(/\s+/g, '_'))}`);
+                await m.reply(`📚 *${page.title || text}*${page.description ? `\n${page.description}` : ''}\n${page.content_urls?.desktop?.page || `https://en.wikipedia.org/wiki/${encodeURIComponent(text.replace(/\s+/g, '_'))}`}`);
+            } catch (err) {
+                await m.reply(`❌ Wikipedia lookup failed: ${err.message}`);
+            }
+            return true;
+        }
+
+        case 'define': {
+            const word = args[0] || '';
+            if (!/^[a-z][a-z'-]{0,49}$/i.test(word)) {
+                await m.reply('Usage: .define <English word>');
+                return true;
+            }
+            try {
+                const url = new URL('https://api.datamuse.com/words');
+                url.search = new URLSearchParams({ sp: word, md: 'd', max: '1' });
+                const entries = await fetchJson(url);
+                const entry = entries[0];
+                const rawDefinition = entry?.defs?.[0] || '';
+                const [partOfSpeech, definition] = rawDefinition.includes('\t')
+                    ? rawDefinition.split('\t', 2)
+                    : ['', rawDefinition];
+                if (!definition) throw new Error('No definition was found.');
+                await m.reply(`📖 *${entry.word || word}*${partOfSpeech ? ` (${partOfSpeech})` : ''}\n${definition}\nSource: https://www.datamuse.com/`);
+            } catch (err) {
+                await m.reply(`❌ Dictionary lookup failed: ${err.message}`);
+            }
+            return true;
+        }
+
+        case 'currency': {
+            const amount = Number(args[0]);
+            const base = (args[1] || '').toUpperCase();
+            const target = (args[2] || '').toUpperCase();
+            if (!Number.isFinite(amount) || amount <= 0 || amount > 1e12 || !/^[A-Z]{3}$/.test(base) || !/^[A-Z]{3}$/.test(target)) {
+                await m.reply('Usage: .currency <amount> <from> <to>\nExample: .currency 10 USD EUR');
+                return true;
+            }
+            try {
+                const url = new URL('https://api.frankfurter.dev/v1/latest');
+                url.search = new URLSearchParams({ amount: String(amount), base, symbols: target });
+                const result = await fetchJson(url);
+                const converted = result.rates?.[target];
+                if (!Number.isFinite(converted)) throw new Error('That currency pair is unavailable.');
+                await m.reply(`💱 ${amount} ${base} = ${new Intl.NumberFormat(undefined, { maximumFractionDigits: 4 }).format(converted)} ${target}\nRate date: ${result.date}`);
+            } catch (err) {
+                await m.reply(`❌ Currency lookup failed: ${err.message}`);
+            }
+            return true;
+        }
+
+        case 'password': {
+            if (m.isGroup) {
+                await m.reply('For privacy, generate passwords in a private chat with the bot.');
+                return true;
+            }
+            const length = args[0] === undefined ? 16 : Number(args[0]);
+            if (!Number.isInteger(length) || length < 8 || length > 64) {
+                await m.reply('Usage: .password [length from 8 to 64]');
+                return true;
+            }
+            await m.reply(`🔐 ${generatePassword(length)}\nKeep this password private.`);
+            return true;
+        }
+
+        case 'styletext': {
+            const style = (args[0] || '').toLowerCase();
+            const value = args.slice(1).join(' ');
+            const { applyFont, FONT_NAMES } = require('../lib/fonts');
+            if (!FONT_NAMES.includes(style) || !value) {
+                await m.reply(`Usage: .styletext <${FONT_NAMES.join('|')}> <text>`);
+                return true;
+            }
+            await m.reply(applyFont(value, style));
+            return true;
+        }
+
+        case 'anime': {
+            if (!text || text.length > 100) {
+                await m.reply('Usage: .anime <title>');
+                return true;
+            }
+            try {
+                const url = new URL('https://kitsu.io/api/edge/anime');
+                url.search = new URLSearchParams({ 'filter[text]': text, 'page[limit]': '1' });
+                const anime = (await fetchJson(url)).data?.[0]?.attributes;
+                if (!anime) {
+                    await m.reply('No anime title matched that search.');
+                    return true;
+                }
+                const title = anime.canonicalTitle || anime.titles?.en || anime.titles?.en_jp || text;
+                const year = anime.startDate?.slice(0, 4);
+                const details = anime.slug ? `https://kitsu.io/anime/${anime.slug}` : 'https://kitsu.io/anime';
+                await m.reply(`🎌 *${title}*${year ? ` (${year})` : ''}\nStatus: ${anime.status || 'Unknown'}\nEpisodes: ${anime.episodeCount ?? 'Unknown'}${anime.averageRating ? `\nRating: ${anime.averageRating}/100` : ''}\nDetails: ${details}`);
+            } catch (err) {
+                await m.reply(`❌ Anime lookup failed: ${err.message}`);
+            }
+            return true;
+        }
+
+        case 'waifu':
+        case 'megumin': {
+            try {
+                let character;
+                if (cmd === 'megumin') {
+                    const url = new URL('https://kitsu.io/api/edge/characters');
+                    url.search = new URLSearchParams({ 'filter[name]': 'Megumin', 'page[limit]': '5' });
+                    const results = (await fetchJson(url)).data || [];
+                    character = results.find((item) => item.attributes?.name?.toLowerCase() === 'megumin') || results[0];
+                } else {
+                    const top = await fetchJson('https://kitsu.io/api/edge/characters?page%5Blimit%5D=25');
+                    const characters = top.data || [];
+                    character = characters.length ? randomItem(characters) : null;
+                }
+                if (!character) {
+                    await m.reply('No character profile was available right now.');
+                    return true;
+                }
+                await m.reply(formatAnimeCharacter(character));
+            } catch (err) {
+                await m.reply(`❌ Anime character lookup failed: ${err.message}`);
+            }
+            return true;
+        }
+
         case 'translate': {
             const [targetLanguage, ...words] = args;
             const sourceText = words.join(' ');
@@ -486,7 +734,8 @@ async function runExtraCommand(cmd, m, { args, sock, session, owner, getQuotedMe
             return true;
         }
 
-        case 'remind': {
+        case 'remind':
+        case 'reminder': {
             const duration = parseDuration(args[0]);
             const reminderText = args.slice(1).join(' ').trim();
             if (!duration || duration > MAX_REMINDER_MS || !reminderText) {

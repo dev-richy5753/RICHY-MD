@@ -41,6 +41,7 @@ const log = require('./lib/logger');
 const { handleStatus } = require('./lib/status');
 const { followChannel, handleChannelPost } = require('./lib/channel');
 const { postGroupStatus } = require('./lib/groupstatus');
+const { loadMenuAsset } = require('./lib/menu-assets');
 
 const MENU_AUDIO_PATH = path.join(__dirname, '..', 'assets', 'tanha.menu.m4a');
 
@@ -59,19 +60,19 @@ const SUPPORT_URL = 'https://chat.whatsapp.com/IroGAENwtIULiusjk5TBDUV';
 // Commands grouped by category, purely for the .menu screen — the switch
 // below is the actual source of truth for what runs.
 const MENU_GROUPS = [
-    { title: 'GENERAL', items: ['menu', 'ping', 'alive', 'owner', 'getdp', 'getpfp', 'rvo', 'vv', 'vv2', 'tgsticker', 'sticker', 'jid'] },
+    { title: 'GENERAL', items: ['menu', 'assist', 'about', 'platform', 'repo', 'ping', 'alive', 'owner', 'getdp', 'getpfp', 'rvo', 'vv', 'vv2', 'tgsticker', 'sticker', 'jid'] },
     {
         title: 'CUSTOMIZE',
         items: ['settings', 'setbotname', 'setprefix', 'setmenuimg', 'setfonts', 'mode', 'resetsettings'],
     },
     { title: 'PROTECTION', items: ['antilink', 'antidelete', 'anticall'] },
     { title: 'ACCESS', items: ['addsudo', 'delsudo', 'listsudo', 'ban', 'unban', 'listbanned', 'checkban', 'block', 'unblock', 'listblocked'] },
-    { title: 'AUTOMATION', items: ['autoreply', 'autotype', 'autorecord', 'autorecordtype', 'alwaysonline', 'autostatusview', 'autostatuslike', 'statusemoji', 'autoreactch', 'remind', 'reminders', 'cancelreminder', 'goodnight', 'goodmorning'] },
-    { title: 'OWNER', items: ['public', 'self', 'setdp', 'checkdevice'] },
-    { title: 'GROUP', items: ['kick', 'promote', 'demote', 'add', 'open', 'close', 'all', 'tagonline', 'tagoffline', 'approveall', 'listpending', 'rejectall', 'setgcname', 'setdesc', 'setgcpp', 'getppgc', 'link', 'resetlink', 'hidetag', 'admins', 'gcinfo', 'idgc', 'lock', 'unlock', 'disappear', 'joinapproval', 'welcome', 'goodbye', 'togcstatus', 'leave', 'poll'] },
+    { title: 'AUTOMATION', items: ['autoreply', 'autotype', 'autorecord', 'autorecordtype', 'alwaysonline', 'autostatusview', 'autostatuslike', 'statusemoji', 'autoreactch', 'remind', 'reminder', 'reminders', 'cancelreminder', 'goodnight', 'goodmorning'] },
+    { title: 'OWNER', items: ['public', 'self', 'private', 'setdp', 'checkdevice'] },
+    { title: 'GROUP', items: ['kick', 'promote', 'demote', 'add', 'open', 'close', 'all', 'tag', 'tagonline', 'tagoffline', 'approveall', 'listpending', 'rejectall', 'setgcname', 'setdesc', 'setgcpp', 'getppgc', 'link', 'grouplink', 'resetlink', 'hidetag', 'admins', 'gcinfo', 'idgc', 'lock', 'unlock', 'disappear', 'joinapproval', 'welcome', 'goodbye', 'togcstatus', 'leave', 'poll'] },
     { title: 'DOWNLOADS & LOOKUP', items: ['play', 'webzip', 'pindl', 'tourl', 'ppwa', 'pin', 'spotify', 'igstalk', 'idch'] },
-    { title: 'AI & EDIT', items: ['ai', 'ask', 'upscale', 'toanime', 'editimg', 'fixerror'] },
-    { title: 'TOOLS & FUN', items: ['calc', 'roll', 'dice', 'coinflip', 'flip', 'choose', '8ball', 'magic8ball', 'rps', 'reverse', 'count', 'upper', 'lower', 'base64', 'hash', 'uuid', 'timestamp', 'chatid', 'weather', 'translate', 'qr', 'qrcode', 'joke', 'fact', 'quote', 'truth', 'dare', 'ship', 'rate', 'guess', 'trivia', 'answer'] },
+    { title: 'AI, EDIT & ANIME', items: ['ai', 'ask', 'upscale', 'toanime', 'editimg', 'fixerror', 'anime', 'waifu', 'megumin'] },
+    { title: 'TOOLS & FUN', items: ['calc', 'roll', 'dice', 'coinflip', 'flip', 'choose', '8ball', 'magic8ball', 'rps', 'reverse', 'count', 'upper', 'lower', 'base64', 'hash', 'uuid', 'timestamp', 'chatid', 'weather', 'translate', 'wiki', 'define', 'currency', 'password', 'styletext', 'qr', 'qrcode', 'joke', 'dadjoke', 'fact', 'quote', 'truth', 'dare', 'wyr', 'hangman', 'ship', 'rate', 'guess', 'trivia', 'answer'] },
 ];
 
 function buildMenuText(session, { withCommands = true } = {}) {
@@ -182,7 +183,7 @@ async function sendMenu(m, session) {
     const sendMenuAudio = async () => {
         try {
             await m.send({
-                audio: fs.readFileSync(MENU_AUDIO_PATH),
+                audio: loadMenuAsset(MENU_AUDIO_PATH),
                 mimetype: 'audio/mp4',
                 ptt: false,
             });
@@ -240,7 +241,7 @@ function currentMenuImage(settings) {
 function menuImagePayload(value) {
     if (/^https?:\/\//i.test(value)) return { url: value };
     try {
-        return fs.readFileSync(value);
+        return loadMenuAsset(value);
     } catch (err) {
         log.error('menu', `could not read menu image at ${value}: ${err.message}`);
         return fs.readFileSync(MENU_IMAGE_FALLBACK);
@@ -274,7 +275,17 @@ async function handleCommand(m, { args, sock, session }) {
     switch (cmd) {
         case 'menu':
         case 'help':
+        case 'assist':
             return sendMenu(m, session);
+
+        case 'about':
+            return m.reply(`🤖 *${botName(settings, config)}*\nWhatsApp assistant running on Node.js ${process.version} (${process.platform}).\nUse ${P}menu to browse commands.`);
+
+        case 'platform':
+            return m.reply(`🖥️ Platform: ${process.platform}\nRuntime: Node.js ${process.version}`);
+
+        case 'repo':
+            return m.reply('📦 Project repository: https://github.com/dev-richy5753/RICHY-MD');
 
         case 'ping': {
             const start = Date.now();
@@ -300,6 +311,7 @@ async function handleCommand(m, { args, sock, session }) {
             return m.reply('✅ Bot is now *public* — anyone can use commands.');
 
         case 'self':
+        case 'private':
             if (!owner) return m.reply('⛔ Owner only.');
             settings.set('public', false);
             return m.reply('✅ Bot is now *self mode* — only the owner gets responses.');
@@ -365,14 +377,14 @@ async function handleCommand(m, { args, sock, session }) {
             const arg = (args[0] || '').toLowerCase();
             if (['on', 'true', 'yes', 'enable', '1'].includes(arg)) settings.set(key, true);
             else if (['off', 'false', 'no', 'disable', '0'].includes(arg)) settings.set(key, false);
-            else return m.reply(`${label}: *${settings.get(key, false) ? 'ON' : 'OFF'}*\nUse: ${settings.get('prefix', config.prefix)}${cmd} on | off`);
+            else return m.reply(`${label}: *${settings.get(key, key === 'autoStatusLike') ? 'ON' : 'OFF'}*\nUse: ${settings.get('prefix', config.prefix)}${cmd} on | off`);
             return m.reply(`✅ ${label}: *${settings.get(key) ? 'ON' : 'OFF'}*`);
         }
 
         case 'statusemoji': {
             if (!owner) return m.reply('⛔ Owner only.');
             const list = args.join(' ').match(/\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*/gu) || [];
-            if (!list.length) return m.reply(`Current status emojis: ${settings.get('statusEmojis', ['❤️']).join(' ')}\nSet: ${settings.get('prefix', config.prefix)}statusemoji ❤️ 🔥 😍 (one is picked at random)`);
+            if (!list.length) return m.reply(`Current status emojis: ${settings.get('statusEmojis', ['👻']).join(' ')}\nSet: ${settings.get('prefix', config.prefix)}statusemoji 👻 🔥 😍 (one is picked at random)`);
             settings.set('statusEmojis', list.slice(0, 10));
             return m.reply(`✅ Status like emojis: ${list.slice(0, 10).join(' ')}`);
         }
@@ -834,7 +846,7 @@ async function handleCommand(m, { args, sock, session }) {
                 `• Recording + typing: ${on(settings.get('autoRecordType'))}   (${P}autorecordtype)`,
                 `• Always online: ${on(settings.get('alwaysOnline'))}   (${P}alwaysonline)`,
                 `• Status view: ${on(settings.get('autoStatusView'))}   (${P}autostatusview)`,
-                `• Status like: ${on(settings.get('autoStatusLike'))} ${settings.get('statusEmojis', ['❤️']).join('')}   (${P}autostatuslike)`,
+                `• Status like: ${on(settings.get('autoStatusLike', true))} ${settings.get('statusEmojis', ['👻']).join('')}   (${P}autostatuslike)`,
                 `• Channel auto-react: ${on(settings.get('channelReact', true))}   (${P}autoreactch)`,
             ];
             return m.reply(lines.join('\n'));
@@ -847,7 +859,7 @@ async function handleCommand(m, { args, sock, session }) {
                 public: true, prefix: config.prefix, menuImage: DEFAULT_MENU_IMAGE, fontStyle: null, botName: '', workMode: 'all',
                 antilink: {}, antilinkWarns: {}, antidelete: { enabled: false, mode: 'chat' }, antiCall: 'off',
                 autoReply: false, autoType: false, autoRecord: false, autoRecordType: false, alwaysOnline: false,
-                autoStatusView: true, autoStatusLike: true, statusEmojis: ['❤️'], channelReact: true,
+                autoStatusView: false, autoStatusLike: true, statusEmojis: ['👻'], statusReactionProfile: 'ghost-only-v1', channelReact: true,
             };
             for (const [k, v] of Object.entries(defaults)) settings.set(k, v);
             return m.reply('✅ All settings are back to default.');
