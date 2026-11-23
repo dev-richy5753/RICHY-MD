@@ -40,7 +40,7 @@ function createSessionSettings(sessionId, defaultPrefix, defaultMenuImage) {
         public: true,
         prefix: defaultPrefix,
         menuImage: defaultMenuImage,
-        menuMedia: 'video',
+        menuMedia: 'image',
         fontStyle: null,
         autoStatusView: true,
         autoStatusLike: true,
@@ -70,7 +70,7 @@ function createSessionSettings(sessionId, defaultPrefix, defaultMenuImage) {
                 const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
                 data = { ...data, ...stored };
                 if (!Object.prototype.hasOwnProperty.call(stored, 'menuMedia')) {
-                    data.menuMedia = 'video';
+                    data.menuMedia = 'image';
                     migrated = true;
                 }
             } else save();

@@ -13,7 +13,7 @@ const { createDoc, notice, sendDoc, editDoc, cb, link, copy, kb, esc, tg } = req
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ownerTelegramId = process.env.OWNER_TELEGRAM_ID?.trim();
 const OWNER_TELEGRAM_ID = ownerTelegramId && /^\d+$/.test(ownerTelegramId) ? Number(ownerTelegramId) : 0;
-const MENU_VIDEO_PATH = path.join(__dirname, '..', 'assets', 'menu.mp4');
+const MENU_AUDIO_PATH = path.join(__dirname, '..', 'assets', 'tanha.menu.m4a');
 const CHANNEL_URL = process.env.CHANNEL_URL || 'https://whatsapp.com/channel/0029VaogSY74IBhJWe8b472H';
 const GROUP_URL = process.env.GROUP_URL || 'https://chat.whatsapp.com/IroGAENwtIULiuFI5TBDUV';
 
@@ -191,24 +191,51 @@ const sendMenu = async (ctx) => {
     const doc = menuDoc();
     const caption = doc.build().legacy;
     const oldMessage = ctx.callbackQuery?.message;
+    const menuImages = [...new Set(config.menuImages)];
+    const menuImage = menuImages[Math.floor(Math.random() * menuImages.length)];
+    const fallbackImage = menuImages.find((image) => image !== menuImage);
+    const photoOptions = { caption, parse_mode: 'HTML', reply_markup: menuKeyboard() };
+    const sendPhoto = (image) => {
+        const photo = /^https?:\/\//i.test(image)
+            ? { url: image }
+            : { source: fs.createReadStream(image), filename: path.basename(image) };
+        return ctx.telegram.sendPhoto(ctx.chat.id, photo, photoOptions);
+    };
+    let sent;
+    let textFallback = false;
     try {
-        const sent = await ctx.telegram.sendVideo(
-            ctx.chat.id,
-            { source: fs.createReadStream(MENU_VIDEO_PATH) },
-            { caption, parse_mode: 'HTML', supports_streaming: true, reply_markup: menuKeyboard() }
-        );
-        if (oldMessage) {
+        sent = await sendPhoto(menuImage);
+    } catch (err) {
+        console.error('[telegram] menu photo failed:', err.message);
+        if (fallbackImage) {
             try {
-                await ctx.telegram.deleteMessage(oldMessage.chat.id, oldMessage.message_id);
-            } catch (err) {
-                console.warn('[telegram] previous menu message could not be replaced:', err.message);
+                sent = await sendPhoto(fallbackImage);
+            } catch (fallbackErr) {
+                console.error('[telegram] fallback menu photo failed:', fallbackErr.message);
             }
         }
-        return sent;
-    } catch (err) {
-        console.error('[telegram] menu video failed:', err.message);
-        return show(ctx, doc, menuKeyboard());
+        if (!sent) {
+            sent = await show(ctx, doc, menuKeyboard());
+            textFallback = true;
+        }
     }
+    if (oldMessage && !textFallback) {
+        try {
+            await ctx.telegram.deleteMessage(oldMessage.chat.id, oldMessage.message_id);
+        } catch (err) {
+            console.warn('[telegram] previous menu message could not be replaced:', err.message);
+        }
+    }
+    try {
+        await ctx.telegram.sendAudio(
+            ctx.chat.id,
+            { source: fs.createReadStream(MENU_AUDIO_PATH), filename: path.basename(MENU_AUDIO_PATH) },
+            { title: 'Menu soundtrack' }
+        );
+    } catch (err) {
+        console.error('[telegram] menu audio failed:', err.message);
+    }
+    return sent;
 };
 
 bot.start(sendMenu);

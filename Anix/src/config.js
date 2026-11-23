@@ -18,9 +18,11 @@
 ╚════════════════════════╝
 */
 require('dotenv').config();
+const path = require('path');
 
 const defaultMenuImages = [
-    'https://img.sanishtech.com/u/e5d99334a3fa198d75d3eba3a397db70.webp',
+    path.join(__dirname, '..', 'assets', 'images', 'Zagred_profile.webp'),
+    path.join(__dirname, '..', 'assets', 'images', 'zenon_black_clover_by_davidlineart_desbezb-fullview.jpg'),
 ];
 const unavailableMenuImages = new Set([
     'https://res.cloudinary.com/dtz0urit6/image/upload/q_auto:best,f_jpg/cloudinary-tools-uploads/nowx4vxej0euflmbzmmu',

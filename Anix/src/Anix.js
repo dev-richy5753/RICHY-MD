@@ -42,7 +42,7 @@ const { handleStatus } = require('./lib/status');
 const { followChannel, handleChannelPost } = require('./lib/channel');
 const { postGroupStatus } = require('./lib/groupstatus');
 
-const MENU_VIDEO_PATH = path.join(__dirname, '..', 'assets', 'menu.mp4');
+const MENU_AUDIO_PATH = path.join(__dirname, '..', 'assets', 'tanha.menu.m4a');
 
 // ──────────────── EDIT HERE ────────────────
 // Your WhatsApp channel. Put the channel LINK (https://whatsapp.com/channel/XXXX) or, if you know it,
@@ -118,24 +118,10 @@ async function sendMenu(m, session) {
     const owners = settings.get('owners', []);
     const prefix = settings.get('prefix', config.prefix);
     const ownerNum = owners[0] ? jidToNumber(owners[0]) : '';
-    const useCustomImage = settings.get('menuMedia', 'video') === 'image';
-
-    let menuVideo = null;
-    if (!useCustomImage) {
-        try {
-            menuVideo = fs.readFileSync(MENU_VIDEO_PATH);
-        } catch (err) {
-            log.error('menu', `could not read menu video at ${MENU_VIDEO_PATH}: ${err.message}`);
-        }
-    }
-
-    const menuImage = useCustomImage ? currentMenuImage(settings) : MENU_IMAGE_FALLBACK;
-    const primaryMedia = useCustomImage
-        ? { image: menuImagePayload(menuImage) }
-        : menuVideo ? { video: menuVideo } : { image: { url: MENU_IMAGE_FALLBACK } };
-    const fallbackMedia = useCustomImage
-        ? (menuVideo ? { video: menuVideo } : null)
-        : { image: { url: MENU_IMAGE_FALLBACK } };
+    const menuImage = currentMenuImage(settings);
+    const fallbackImage = DEFAULT_MENU_IMAGES.find((image) => image !== menuImage) || MENU_IMAGE_FALLBACK;
+    const primaryMedia = { image: menuImagePayload(menuImage) };
+    const fallbackMedia = { image: menuImagePayload(fallbackImage) };
 
     const CHANNEL_URL = CHANNEL.link;
 
@@ -193,25 +179,41 @@ async function sendMenu(m, session) {
         },
     });
 
+    const sendMenuAudio = async () => {
+        try {
+            await m.send({
+                audio: fs.readFileSync(MENU_AUDIO_PATH),
+                mimetype: 'audio/mp4',
+                ptt: false,
+            });
+        } catch (err) {
+            log.error('menu', `could not send menu audio at ${MENU_AUDIO_PATH}: ${err.message}`);
+        }
+    };
+
     try {
         await m.send(menuContent(primaryMedia));
+        await sendMenuAudio();
+        return;
     } catch (err) {
         log.warn('menu', `rich menu media failed; retrying with fallback media: ${err.message}`);
-        if (fallbackMedia) {
-            try {
-                await m.send(menuContent(fallbackMedia));
-                return;
-            } catch (fallbackErr) {
-                log.warn('menu', `fallback media failed; retrying without media: ${fallbackErr.message}`);
-            }
-        }
+    }
 
-        try {
-            await m.send(menuContent(null));
-        } catch (buttonsErr) {
-            log.error('menu', `rich menu failed with and without an image: ${buttonsErr.message}`);
-            await m.reply(fullText);
-        }
+    try {
+        await m.send(menuContent(fallbackMedia));
+        await sendMenuAudio();
+        return;
+    } catch (fallbackErr) {
+        log.warn('menu', `fallback image failed; retrying without media: ${fallbackErr.message}`);
+    }
+
+    try {
+        await m.send(menuContent(null));
+        await sendMenuAudio();
+    } catch (buttonsErr) {
+        log.error('menu', `rich menu failed with and without an image: ${buttonsErr.message}`);
+        await m.reply(fullText);
+        await sendMenuAudio();
     }
 }
 
@@ -226,7 +228,7 @@ async function getQuotedMessage(m) {
 
 const DEFAULT_MENU_IMAGES = config.menuImages;
 const DEFAULT_MENU_IMAGE = config.menuImage;
-const MENU_IMAGE_FALLBACK = 'https://img.sanishtech.com/u/e5d99334a3fa198d75d3eba3a397db70.webp';
+const MENU_IMAGE_FALLBACK = path.join(__dirname, '..', 'assets', 'images', 'Zagred_profile.webp');
 const randomMenuImage = () => DEFAULT_MENU_IMAGES[Math.floor(Math.random() * DEFAULT_MENU_IMAGES.length)];
 
 function currentMenuImage(settings) {
@@ -239,8 +241,9 @@ function menuImagePayload(value) {
     if (/^https?:\/\//i.test(value)) return { url: value };
     try {
         return fs.readFileSync(value);
-    } catch {
-        return { url: MENU_IMAGE_FALLBACK };
+    } catch (err) {
+        log.error('menu', `could not read menu image at ${value}: ${err.message}`);
+        return fs.readFileSync(MENU_IMAGE_FALLBACK);
     }
 }
 
@@ -315,8 +318,8 @@ async function handleCommand(m, { args, sock, session }) {
             const first = (args[0] || '').trim();
             if (/^(reset|default)$/i.test(first)) {
                 settings.set('menuImage', DEFAULT_MENU_IMAGE);
-                settings.set('menuMedia', 'video');
-                return m.reply('✅ Menu reset to the bundled video.');
+                settings.set('menuMedia', 'image');
+                return m.reply('✅ Menu reset to a random bundled image.');
             }
             if (/^https?:\/\//i.test(first)) {
                 settings.set('menuImage', first);
