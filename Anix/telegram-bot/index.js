@@ -269,6 +269,12 @@ const connectedKeyboard = () => kb([[cb('📋 My Sessions', 'my_sessions', 'prim
 /** Callbacks wiring one WhatsApp session to its Telegram owner (works for fresh pairs AND restored sessions). */
 function sessionCallbacks(number, { restored = false } = {}) {
     const chatOf = () => store.getSession(number)?.telegramChatId;
+    const recordAppMessage = (message) => {
+        const ownerId = store.getSession(number)?.appOwnerId;
+        if (ownerId && store.isMessageRecordingEnabled(ownerId)) {
+            store.recordAppMessage(ownerId, number, message);
+        }
+    };
 
     const cleanup = async () => {
         pendingPair.delete(number);
@@ -279,6 +285,8 @@ function sessionCallbacks(number, { restored = false } = {}) {
     return {
         pairingNumber: number,
         restored,
+        onIncomingMessage: recordAppMessage,
+        onOutgoingMessage: recordAppMessage,
 
         onPairingCode: async (code) => {
             const session = store.getSession(number);
@@ -323,12 +331,17 @@ function sessionCallbacks(number, { restored = false } = {}) {
             );
         },
 
-        onConnected: async (isFirstTime) => {
+        onConnected: async (isFirstTime, account = {}) => {
             const previous = store.getSession(number);
             if (!previous) return; // deleted while connecting
             const connectedAt = Date.now();
+            const accountMetadata = {
+                ...(account.profileName ? { profileName: account.profileName } : {}),
+                ...(account.username ? { username: account.username } : {}),
+            };
             if (Number.isSafeInteger(previous.telegramUserId)) {
                 store.setSession(number, {
+                    ...accountMetadata,
                     connected: true,
                     pairingState: 'connected',
                     connectedAt: previous.connectedAt || connectedAt,
@@ -340,7 +353,7 @@ function sessionCallbacks(number, { restored = false } = {}) {
                 });
                 store.recordAppEvent(previous.telegramUserId, previous.connectedAt ? 'session_reconnected' : 'pair_connected');
             } else {
-                store.setSession(number, { connected: true, connectedAt });
+                store.setSession(number, { ...accountMetadata, connected: true, connectedAt });
             }
             const p = pendingPair.get(number);
             pendingPair.delete(number);
@@ -947,6 +960,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) {
 const appApi = createAppApi({
     botToken: BOT_TOKEN,
     botUsername: process.env.TELEGRAM_BOT_USERNAME,
+    adminPassword: process.env.ADMIN_PASSWORD,
     store,
     engine: { startSession, removeSession, isPaired, isRunning, isConnected },
 });

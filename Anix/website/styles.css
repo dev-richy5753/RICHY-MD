@@ -455,6 +455,9 @@ a {
     font-size: 1.05rem;
 }
 
+#admin-entry { cursor: pointer; }
+#admin-entry:focus-visible { border-radius: 3px; outline: 2px solid var(--mint); outline-offset: 4px; }
+
 .feature-card p,
 .steps p {
     margin: 0;

@@ -262,10 +262,36 @@ function initializeMascot() {
     }, { once: true });
 }
 
+function initializeAdminEntry() {
+    const entry = document.querySelector('#admin-entry');
+    let tapCount = 0;
+    let resetTimer;
+
+    const registerTap = () => {
+        tapCount += 1;
+        clearTimeout(resetTimer);
+        if (tapCount === 5) {
+            window.location.assign('/app/?admin=1');
+            return;
+        }
+        resetTimer = setTimeout(() => {
+            tapCount = 0;
+        }, 2500);
+    };
+
+    entry.addEventListener('click', registerTap);
+    entry.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        registerTap();
+    });
+}
+
 async function initializeWebsite() {
     document.querySelector('#year').textContent = String(new Date().getFullYear());
     initializeMotion();
     initializeMascot();
+    initializeAdminEntry();
 
     await Promise.all([configureDownloads(), configureBackgroundMedia()]);
 }

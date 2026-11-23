@@ -30,6 +30,7 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.match(pageHtml, /Your WhatsApp\./);
     assert.match(pageHtml, /id="insights"/);
     assert.match(pageHtml, /id="faq"/);
+    assert.match(pageHtml, /id="admin-entry"/);
     assert.doesNotMatch(pageHtml, /<video\b|montagem\.mp4/);
     assert.match(pageHtml, /Pair WhatsApp/);
     assert.match(pageHtml, /dashboard-showcase/);
@@ -42,6 +43,20 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.match(appHtml, /Pair your WhatsApp/);
     assert.match(appHtml, /id="pair-form"/);
     assert.match(appHtml, /id="pairing-code"/);
+    assert.doesNotMatch(appHtml, /analysis-nav|analysis-view|Message analysis/);
+    assert.match(appHtml, /id="admin-view"/);
+    assert.match(appHtml, /id="admin-message-list"/);
+    assert.match(appHtml, /id="admin-message-table-wrap"/);
+    assert.match(appHtml, /<th>Type<\/th>/);
+    assert.match(appHtml, /Full phone numbers are shown here/);
+    assert.match(appHtml, /Tap one of the WhatsApp numbers/);
+    assert.match(appHtml, /id="admin-login-form"/);
+    assert.match(appHtml, /id="admin-password"/);
+    assert.match(appHtml, /id="admin-content"[\s\S]*id="recording-disabled"/);
+    assert.match(appHtml, /Admin lists sessions from all browser owners/);
+    assert.match(appHtml, /WhatsApp Channel posts and status updates are not collected/);
+    assert.match(appHtml, /informed the people whose messages may be recorded/);
+    assert.match(appHtml, /bot administrator can view these records/);
     assert.match(appHtml, /app-loading/);
     assert.match(appHtml, /richy-md-icon\.png/);
     assert.doesNotMatch(appHtml, /telegram-widget|Sign in with Telegram/);

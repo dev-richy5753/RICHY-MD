@@ -1,12 +1,19 @@
 const notice = document.querySelector('#notice');
 const appLoading = document.querySelector('#app-loading');
 const dashboard = document.querySelector('#dashboard');
+const dashboardView = document.querySelector('#dashboard-view');
+const adminView = document.querySelector('#admin-view');
 const sessionList = document.querySelector('#session-list');
 const themeAudio = document.querySelector('#theme-audio');
 const themeAudioButton = document.querySelector('#theme-audio-button');
 const themeAudioLabel = document.querySelector('#theme-audio-label');
 let refreshTimer;
+let adminRefreshTimer;
 let installPrompt;
+let currentView = 'dashboard';
+let selectedAdminSessionId = '';
+let adminSessions = [];
+let adminMessages = [];
 
 function updateThemeAudioButton(isPlaying) {
     themeAudioButton.setAttribute('aria-pressed', String(isPlaying));
@@ -93,10 +100,6 @@ function formatDuration(milliseconds) {
     return `${remaining}m`;
 }
 
-function maskNumber(number) {
-    return `•••• ${String(number).slice(-4)}`;
-}
-
 function statusLabel(status) {
     return ({
         awaiting_pairing: 'Awaiting code',
@@ -138,12 +141,23 @@ function renderSessions(sessions) {
         info.className = 'session-info';
         const number = document.createElement('p');
         number.className = 'session-number';
-        number.textContent = maskNumber(session.number);
+        number.textContent = session.number;
+        const account = [session.profileName, session.username ? `@${session.username.replace(/^@/, '')}` : '']
+            .filter(Boolean)
+            .join(' · ');
+        if (account) {
+            const accountName = document.createElement('p');
+            accountName.className = 'session-account';
+            accountName.textContent = account;
+            info.append(number, accountName);
+        } else {
+            info.append(number);
+        }
         const status = document.createElement('span');
         status.className = 'session-status';
         status.dataset.status = session.status;
         status.textContent = statusLabel(session.status);
-        info.append(number, status);
+        info.append(status);
 
         if (session.pairingCode) {
             const code = document.createElement('p');
@@ -168,7 +182,7 @@ function renderSessions(sessions) {
         remove.className = 'button button-quiet delete-button';
         remove.type = 'button';
         remove.textContent = 'Remove';
-        remove.setAttribute('aria-label', `Remove session ${maskNumber(session.number)}`);
+        remove.setAttribute('aria-label', `Remove session ${session.number}`);
         remove.addEventListener('click', () => deleteSession(session.number, remove));
         actions.append(uptime, remove);
         card.append(main, actions);
@@ -202,6 +216,195 @@ function renderActivity(activity = []) {
         group.append(bars, date, count);
         chart.append(group);
     }
+}
+
+function renderMessages(messages = []) {
+    const list = document.querySelector('#admin-message-list');
+    list.replaceChildren();
+    for (const message of [...messages].reverse()) {
+        const row = document.createElement('tr');
+        row.className = `admin-message-row ${message.direction}`;
+
+        const time = document.createElement('td');
+        time.textContent = new Date(message.at).toLocaleString();
+        const direction = document.createElement('td');
+        direction.textContent = message.direction === 'incoming'
+            ? 'Received'
+            : message.source === 'personal' ? 'Personal sent' : 'Bot sent';
+        const sender = document.createElement('td');
+        sender.textContent = message.senderNumber && message.senderNumber !== message.sender
+            ? `${message.sender} · ${message.senderNumber}`
+            : message.sender;
+        const chat = document.createElement('td');
+        chat.textContent = message.chat || 'Unknown';
+        const chatType = document.createElement('td');
+        chatType.className = 'admin-chat-type';
+        chatType.textContent = message.chatType === 'group'
+            ? 'Group'
+            : message.chatType === 'direct' ? 'Direct' : 'Unknown';
+        const content = document.createElement('td');
+        content.className = 'admin-message-text';
+        content.textContent = message.text;
+
+        row.append(time, direction, sender, chat, chatType, content);
+        list.append(row);
+    }
+}
+
+function renderAdminSessions(sessions = []) {
+    const list = document.querySelector('#admin-session-list');
+    const empty = document.querySelector('#admin-sessions-empty');
+    adminSessions = sessions;
+    if (!sessions.some((session) => session.sessionId === selectedAdminSessionId)) {
+        selectedAdminSessionId = '';
+    }
+    list.replaceChildren();
+    empty.hidden = sessions.length > 0;
+    for (const session of sessions) {
+        const row = document.createElement('article');
+        row.className = 'admin-session-row';
+
+        const details = document.createElement('div');
+        details.className = 'admin-session-details';
+        const number = document.createElement('button');
+        number.className = 'admin-session-number';
+        number.type = 'button';
+        number.textContent = session.number;
+        number.setAttribute('aria-label', `View messages for WhatsApp number ${session.number}`);
+        number.setAttribute('aria-pressed', String(session.sessionId === selectedAdminSessionId));
+        number.addEventListener('click', () => {
+            selectedAdminSessionId = session.sessionId;
+            renderAdminSessions(adminSessions);
+            renderSelectedAdminMessages();
+        });
+        const status = document.createElement('span');
+        status.className = 'session-status';
+        status.dataset.status = session.status;
+        status.textContent = statusLabel(session.status);
+        details.append(number);
+        const account = [session.profileName, session.username ? `@${session.username.replace(/^@/, '')}` : '']
+            .filter(Boolean)
+            .join(' · ');
+        if (account) {
+            const accountName = document.createElement('span');
+            accountName.className = 'admin-session-account';
+            accountName.textContent = account;
+            details.append(accountName);
+        }
+        details.append(status);
+
+        const activity = document.createElement('span');
+        activity.className = 'admin-session-activity';
+        activity.textContent = `${session.connected ? 'Connected' : 'Offline'} · ${session.reconnectCount} reconnects · ${formatDuration(session.uptimeMs)} uptime`;
+        row.append(details, activity);
+        list.append(row);
+    }
+}
+
+function renderSelectedAdminMessages() {
+    const selected = adminSessions.find((session) => session.sessionId === selectedAdminSessionId);
+    const selectPrompt = document.querySelector('#admin-message-select-empty');
+    const table = document.querySelector('#admin-message-table-wrap');
+    const empty = document.querySelector('#admin-messages-empty');
+    const selectedNumber = document.querySelector('#admin-selected-number');
+    const list = document.querySelector('#admin-message-list');
+
+    if (!selected) {
+        selectedNumber.hidden = true;
+        table.hidden = true;
+        empty.hidden = true;
+        selectPrompt.hidden = false;
+        list.replaceChildren();
+        return;
+    }
+
+    const messages = adminMessages.filter((message) => message.sessionId === selected.sessionId);
+    selectedNumber.textContent = `Messages for ${selected.number}`;
+    selectedNumber.hidden = false;
+    selectPrompt.hidden = true;
+    table.hidden = messages.length === 0;
+    empty.hidden = messages.length > 0;
+    renderMessages(messages);
+}
+
+document.querySelector('#admin-login-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const errorNotice = document.querySelector('#admin-login-error');
+    const form = event.currentTarget;
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    errorNotice.hidden = true;
+    try {
+        await api('/api/admin/auth/password', {
+            method: 'POST',
+            body: JSON.stringify({ password: form.elements.password.value }),
+        });
+        form.reset();
+        await refreshAdminPanel();
+    } catch (error) {
+        errorNotice.textContent = error.message;
+        errorNotice.hidden = false;
+    } finally {
+        submitButton.disabled = false;
+    }
+});
+
+async function refreshAdminPanel(showErrors = true) {
+    try {
+        const adminSession = await api('/api/admin/session');
+        const loginPanel = document.querySelector('#admin-login');
+        const adminContent = document.querySelector('#admin-content');
+        loginPanel.hidden = adminSession.authenticated;
+        adminContent.hidden = !adminSession.authenticated;
+
+        if (!adminSession.authenticated) {
+            const config = await api('/api/admin/config');
+            document.querySelector('#admin-setup-help').hidden = config.enabled;
+            document.querySelector('#admin-login-form').hidden = !config.enabled;
+            document.querySelector('#admin-login-error').hidden = true;
+            clearTimeout(adminRefreshTimer);
+            return;
+        }
+
+        const [sessionsResult, messagesResult] = await Promise.all([
+            api('/api/admin/sessions'),
+            api('/api/admin/messages'),
+        ]);
+        document.querySelector('#admin-connected-count').textContent = sessionsResult.connectedSessions;
+        document.querySelector('#admin-session-count').textContent = `of ${sessionsResult.totalSessions} total sessions`;
+        document.querySelector('#admin-message-count').textContent = messagesResult.messages.length;
+        renderAdminSessions(sessionsResult.sessions);
+        adminMessages = messagesResult.messages;
+        renderSelectedAdminMessages();
+        if (showErrors) hideNotice();
+
+        clearTimeout(adminRefreshTimer);
+        if (currentView === 'admin') {
+            adminRefreshTimer = setTimeout(() => refreshAdminPanel(false), 15000);
+        }
+    } catch (error) {
+        if (showErrors) showNotice(error.message, 'error');
+    }
+}
+
+async function refreshRecordingState(showErrors = true) {
+    try {
+        const result = await api('/api/messages');
+        document.querySelector('#recording-status').textContent = result.recordingEnabled ? 'Recording on' : 'Recording off';
+        document.querySelector('#recording-disabled').hidden = result.recordingEnabled;
+        document.querySelector('#recording-enabled').hidden = !result.recordingEnabled;
+        if (showErrors) hideNotice();
+    } catch (error) {
+        if (showErrors) showNotice(error.message, 'error');
+    }
+}
+
+function showView(view) {
+    currentView = view;
+    dashboardView.hidden = view !== 'dashboard';
+    adminView.hidden = view !== 'admin';
+    clearTimeout(adminRefreshTimer);
+    if (view === 'admin') refreshAdminPanel();
 }
 
 async function refreshDashboard(showErrors = true) {
@@ -286,6 +489,63 @@ document.querySelector('#pair-form').addEventListener('submit', async (event) =>
 });
 
 document.querySelector('#refresh-button').addEventListener('click', () => refreshDashboard());
+document.querySelector('#admin-refresh').addEventListener('click', () => refreshAdminPanel());
+document.querySelector('#message-consent').addEventListener('change', (event) => {
+    document.querySelector('#enable-recording').disabled = !event.target.checked;
+});
+
+document.querySelector('#enable-recording').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    hideNotice();
+    try {
+        await api('/api/messages/recording', {
+            method: 'POST',
+            body: JSON.stringify({ enabled: true, informedParticipants: true }),
+        });
+        document.querySelector('#message-consent').checked = false;
+        showNotice('Message is enabled. Text is removed within 24 hours.', 'success');
+        await refreshRecordingState(false);
+        await refreshAdminPanel(false);
+    } catch (error) {
+        showNotice(error.message, 'error');
+        button.disabled = !document.querySelector('#message-consent').checked;
+    }
+});
+
+document.querySelector('#disable-recording').addEventListener('click', async (event) => {
+    if (!window.confirm('Stop recording and permanently clear all saved WhatsApp messages now?')) return;
+    const button = event.currentTarget;
+    button.disabled = true;
+    hideNotice();
+    try {
+        await api('/api/messages/recording', {
+            method: 'POST',
+            body: JSON.stringify({ enabled: false }),
+        });
+        showNotice('Message recording stopped and saved messages were cleared.', 'success');
+        await refreshRecordingState(false);
+        await refreshAdminPanel(false);
+    } catch (error) {
+        showNotice(error.message, 'error');
+    } finally {
+        button.disabled = false;
+    }
+});
+
+document.querySelector('#admin-exit').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+        await api('/api/admin/logout', { method: 'POST' });
+        window.history.replaceState({}, '', '/app/');
+        showView('dashboard');
+    } catch (error) {
+        showNotice(error.message, 'error');
+    } finally {
+        button.disabled = false;
+    }
+});
 
 document.querySelector('#install-button').addEventListener('click', async () => {
     if (!installPrompt) return;
@@ -316,6 +576,10 @@ async function initialize() {
         await api('/api/app-session', { method: 'POST' });
         setAppLoading(false);
         await refreshDashboard();
+        await refreshRecordingState(false);
+        if (new URLSearchParams(window.location.search).get('admin') === '1') {
+            showView('admin');
+        }
     } catch (error) {
         setAppLoading(false);
         showNotice(error.message, 'error');

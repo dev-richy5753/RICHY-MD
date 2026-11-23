@@ -1,4 +1,4 @@
-const CACHE_NAME = 'richy-md-app-shell-v4';
+const CACHE_NAME = 'richy-md-app-shell-v14';
 const APP_SHELL = [
     '/app/',
     '/app/app.css',

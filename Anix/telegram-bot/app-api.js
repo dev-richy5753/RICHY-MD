@@ -1,10 +1,19 @@
 const crypto = require('node:crypto');
 
 const COOKIE_NAME = 'richy_md_app';
+const ADMIN_COOKIE_NAME = 'richy_md_admin';
 const BODY_LIMIT = 8192;
 const LOGIN_MAX_AGE_SECONDS = 5 * 60;
 const TOKEN_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
+const ADMIN_TOKEN_MAX_AGE_SECONDS = 60 * 60;
+const ADMIN_LOGIN_LIMIT = 5;
+const ADMIN_LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const ADMIN_PASSWORD_MIN_LENGTH = 5;
 const DAY_MS = 24 * 60 * 60 * 1000;
+const ADMIN_SESSION_ID = crypto.createHash('sha256')
+    .update('RICHY MD password-authenticated admin')
+    .digest('hex')
+    .slice(0, 32);
 
 class ApiError extends Error {
     constructor(status, message) {
@@ -94,10 +103,10 @@ function sessionSecret(botToken) {
         .digest();
 }
 
-function signSession(user, secret, now = Date.now()) {
+function signSession(user, secret, now = Date.now(), maxAgeSeconds = TOKEN_MAX_AGE_SECONDS) {
     const payload = Buffer.from(JSON.stringify({
         ...user,
-        exp: Math.floor(now / 1000) + TOKEN_MAX_AGE_SECONDS,
+        exp: Math.floor(now / 1000) + maxAgeSeconds,
     })).toString('base64url');
     const signature = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
     return `${payload}.${signature}`;
@@ -146,6 +155,24 @@ function sessionStatus(number, session, engine, now) {
     return session.pairingState || 'offline';
 }
 
+function maskPhoneNumber(number) {
+    return `•••• ${String(number).slice(-4)}`;
+}
+
+function messageChatType(message) {
+    if (message.chatType === 'group' || message.chatType === 'direct') return message.chatType;
+    if (typeof message.chat !== 'string') return 'unknown';
+    if (/^\d{8,15}$/.test(message.chat)) return 'direct';
+    if (/^\d{16,40}$/.test(message.chat)) return 'group';
+    return 'unknown';
+}
+
+function sessionLookupId(number, secret) {
+    return crypto.createHmac('sha256', secret)
+        .update(`admin-message-session:${number}`)
+        .digest('base64url');
+}
+
 function publicSession({ number, ...session }, engine, now) {
     const connected = engine.isConnected(number);
     const connectedSince = connected && Number.isSafeInteger(session.connectedSince) ? session.connectedSince : null;
@@ -156,6 +183,8 @@ function publicSession({ number, ...session }, engine, now) {
         running: engine.isRunning(number),
         pairingCode: session.pairingCodeExpiresAt > now ? session.pairingCode || null : null,
         pairingCodeExpiresAt: session.pairingCodeExpiresAt > now ? session.pairingCodeExpiresAt : null,
+        profileName: session.profileName || '',
+        username: session.username || '',
         createdAt: session.createdAt || null,
         connectedAt: session.connectedAt || null,
         lastDisconnectedAt: session.lastDisconnectedAt || null,
@@ -194,12 +223,54 @@ function analyticsForUser(userId, store, engine, now) {
     };
 }
 
-function createAppApi({ botToken, botUsername, store, engine }) {
+function createAppApi({ botToken, botUsername, adminPassword, sessionKey, store, engine }) {
     const username = String(botUsername || '').replace(/^@/, '').trim();
-    const secret = botToken ? sessionSecret(botToken) : null;
+    const secret = botToken
+        ? sessionSecret(botToken)
+        : sessionKey
+            ? crypto.createHash('sha256').update(sessionKey).digest()
+            : null;
+    const adminPasswordHash = typeof adminPassword === 'string'
+        && adminPassword.length >= ADMIN_PASSWORD_MIN_LENGTH
+        ? crypto.createHash('sha256').update(adminPassword).digest()
+        : null;
     const pairingStarts = new Set();
     const pairingHistory = new Map();
     const pairingCodeTimers = new Map();
+    const failedAdminLogins = new Map();
+    const revokedAdminCookies = new Map();
+
+    function secureCookie(request) {
+        return process.env.NODE_ENV === 'production'
+            || request.socket.encrypted
+            || request.headers['x-forwarded-proto'] === 'https'
+            ? '; Secure'
+            : '';
+    }
+
+    function adminUser(request) {
+        const token = parseCookies(request.headers.cookie)[ADMIN_COOKIE_NAME];
+        const now = Date.now();
+        for (const [hash, expiresAt] of revokedAdminCookies) {
+            if (expiresAt <= now) revokedAdminCookies.delete(hash);
+        }
+        if (token) {
+            const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+            if (revokedAdminCookies.has(tokenHash)) return null;
+        }
+        const user = secret ? verifySession(token, secret) : null;
+        return user?.id === ADMIN_SESSION_ID ? user : null;
+    }
+
+    function adminLoginKey(request) {
+        return request.socket.remoteAddress || 'unknown';
+    }
+
+    function pruneFailedAdminLogins(now = Date.now()) {
+        for (const [key, attempt] of failedAdminLogins) {
+            if (attempt.expiresAt <= now) failedAdminLogins.delete(key);
+        }
+    }
 
     function clearPairingCodeTimer(number) {
         clearTimeout(pairingCodeTimers.get(number));
@@ -232,6 +303,12 @@ function createAppApi({ botToken, botUsername, store, engine }) {
                 });
             }
 
+            if (pathname === '/api/admin/config' && request.method === 'GET') {
+                return sendJson(response, 200, {
+                    enabled: Boolean(secret && adminPasswordHash),
+                });
+            }
+
             if (pathname === '/api/app-session' && request.method === 'POST') {
                 assertSameOrigin(request);
                 if (!secret) throw new ApiError(503, 'The pairing app is not configured yet.');
@@ -246,31 +323,123 @@ function createAppApi({ botToken, botUsername, store, engine }) {
                         username: '',
                     };
                     const token = signSession(appUser, secret);
-                    const secure = process.env.NODE_ENV === 'production'
-                        || request.socket.encrypted
-                        || request.headers['x-forwarded-proto'] === 'https'
-                        ? '; Secure'
-                        : '';
                     headers = {
-                        'Set-Cookie': `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${TOKEN_MAX_AGE_SECONDS}${secure}`,
+                        'Set-Cookie': `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${TOKEN_MAX_AGE_SECONDS}${secureCookie(request)}`,
                     };
                 }
                 return sendJson(response, 200, { ok: true }, headers);
+            }
+
+            if (pathname === '/api/admin/auth/password' && request.method === 'POST') {
+                assertSameOrigin(request);
+                if (!secret || !adminPasswordHash) {
+                    throw new ApiError(503, `Set ADMIN_PASSWORD to at least ${ADMIN_PASSWORD_MIN_LENGTH} characters to enable admin access.`);
+                }
+                const now = Date.now();
+                pruneFailedAdminLogins(now);
+                const loginKey = adminLoginKey(request);
+                const attempts = failedAdminLogins.get(loginKey);
+                if (attempts?.count >= ADMIN_LOGIN_LIMIT) {
+                    return sendJson(response, 429, { error: 'Too many failed attempts. Try again in 15 minutes.' }, {
+                        'Retry-After': String(Math.ceil((attempts.expiresAt - now) / 1000)),
+                    });
+                }
+                const data = await readJsonBody(request);
+                const suppliedPassword = typeof data.password === 'string' ? data.password : '';
+                const suppliedHash = crypto.createHash('sha256').update(suppliedPassword).digest();
+                if (!crypto.timingSafeEqual(suppliedHash, adminPasswordHash)) {
+                    const count = (attempts?.count || 0) + 1;
+                    failedAdminLogins.set(loginKey, { count, expiresAt: now + ADMIN_LOGIN_WINDOW_MS });
+                    if (failedAdminLogins.size > 1000) {
+                        const oldestKey = failedAdminLogins.keys().next().value;
+                        if (oldestKey) failedAdminLogins.delete(oldestKey);
+                    }
+                    throw new ApiError(401, 'Incorrect admin password.');
+                }
+                failedAdminLogins.delete(loginKey);
+
+                const user = { id: ADMIN_SESSION_ID, firstName: 'Owner', username: '' };
+                const token = signSession(user, secret, now, ADMIN_TOKEN_MAX_AGE_SECONDS);
+                return sendJson(response, 200, { user }, {
+                    'Set-Cookie': `${ADMIN_COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${ADMIN_TOKEN_MAX_AGE_SECONDS}${secureCookie(request)}`,
+                });
+            }
+
+            if (pathname === '/api/admin/session' && request.method === 'GET') {
+                const user = adminUser(request);
+                return sendJson(response, 200, {
+                    authenticated: Boolean(user),
+                    firstName: user?.firstName || '',
+                });
+            }
+
+            if (pathname === '/api/admin/logout' && request.method === 'POST') {
+                assertSameOrigin(request);
+                const token = parseCookies(request.headers.cookie)[ADMIN_COOKIE_NAME];
+                if (token && adminUser(request)) {
+                    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+                    revokedAdminCookies.set(tokenHash, Date.now() + ADMIN_TOKEN_MAX_AGE_SECONDS * 1000);
+                }
+                return sendJson(response, 200, { ok: true }, {
+                    'Set-Cookie': `${ADMIN_COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT${secureCookie(request)}`,
+                });
+            }
+
+            if (pathname.startsWith('/api/admin/')) {
+                const user = adminUser(request);
+                if (!user) throw new ApiError(401, 'Admin sign-in is required.');
+
+                if (pathname === '/api/admin/sessions' && request.method === 'GET') {
+                    const now = Date.now();
+                    const sessions = Object.entries(store.allSessions()).map(([number, session]) => {
+                        const connected = engine.isConnected(number);
+                        const connectedSince = connected && Number.isSafeInteger(session.connectedSince)
+                            ? session.connectedSince
+                            : null;
+                        return {
+                            sessionId: sessionLookupId(number, secret),
+                            number,
+                            profileName: session.profileName || '',
+                            username: session.username || '',
+                            status: sessionStatus(number, session, engine, now),
+                            connected,
+                            running: engine.isRunning(number),
+                            createdAt: session.createdAt || null,
+                            connectedAt: session.connectedAt || null,
+                            lastDisconnectedAt: session.lastDisconnectedAt || null,
+                            reconnectCount: session.reconnectCount || 0,
+                            uptimeMs: (session.totalUptimeMs || 0)
+                                + (connectedSince ? Math.max(0, now - connectedSince) : 0),
+                        };
+                    });
+                    return sendJson(response, 200, {
+                        connectedSessions: sessions.filter((session) => session.connected).length,
+                        totalSessions: sessions.length,
+                        sessions,
+                    });
+                }
+
+                if (pathname === '/api/admin/messages' && request.method === 'GET') {
+                    const messages = store.allAppMessages().map((message) => ({
+                        ...message,
+                        chatType: messageChatType(message),
+                        sessionId: sessionLookupId(message.sessionNumber, secret),
+                        sessionNumber: maskPhoneNumber(message.sessionNumber),
+                    }));
+                    return sendJson(response, 200, { messages });
+                }
+
+                throw new ApiError(404, 'Admin API endpoint not found.');
             }
 
             if (pathname === '/api/auth/telegram' && request.method === 'POST') {
                 assertSameOrigin(request);
                 const data = await readJsonBody(request);
                 const user = validateTelegramLogin(data, botToken);
-                if (!user || !secret || !username) throw new ApiError(401, 'Telegram sign-in could not be verified.');
+                if (!user || !botToken || !secret || !username) throw new ApiError(401, 'Telegram sign-in could not be verified.');
                 const token = signSession(user, secret);
-                const secure = process.env.NODE_ENV === 'production'
-                    || request.socket.encrypted
-                    || request.headers['x-forwarded-proto'] === 'https'
-                    ? '; Secure'
-                    : '';
                 return sendJson(response, 200, { user }, {
-                    'Set-Cookie': `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${TOKEN_MAX_AGE_SECONDS}${secure}`,
+                    'Set-Cookie': `${COOKIE_NAME}=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${TOKEN_MAX_AGE_SECONDS}${secureCookie(request)}`,
                 });
             }
 
@@ -316,6 +485,25 @@ function createAppApi({ botToken, botUsername, store, engine }) {
 
             if (pathname === '/api/analytics' && request.method === 'GET') {
                 return sendJson(response, 200, analyticsForUser(user.id, store, engine, Date.now()));
+            }
+
+            if (pathname === '/api/messages' && request.method === 'GET') {
+                return sendJson(response, 200, {
+                    recordingEnabled: store.isMessageRecordingEnabled(user.id),
+                });
+            }
+
+            if (pathname === '/api/messages/recording' && request.method === 'POST') {
+                assertSameOrigin(request);
+                const body = await readJsonBody(request);
+                if (typeof body.enabled !== 'boolean') {
+                    throw new ApiError(400, 'Choose whether message recording is enabled.');
+                }
+                if (body.enabled && body.informedParticipants !== true) {
+                    throw new ApiError(400, 'Confirm that affected participants have been informed and have consented.');
+                }
+                store.setMessageRecording(user.id, body.enabled);
+                return sendJson(response, 200, { recordingEnabled: body.enabled });
             }
 
             if (pathname === '/api/sessions' && request.method === 'POST') {
@@ -401,12 +589,14 @@ function createAppApi({ botToken, botUsername, store, engine }) {
                                 });
                                 store.recordAppEvent(user.id, 'pair_failed');
                             },
-                            onConnected: () => {
+                            onConnected: (_isFirstTime, account = {}) => {
                                 clearPairingCodeTimer(number);
                                 const previous = store.getSession(number) || {};
                                 const reconnected = Boolean(previous.connectedAt);
                                 const connectedAt = Date.now();
                                 store.setSession(number, {
+                                    ...(account.profileName ? { profileName: account.profileName } : {}),
+                                    ...(account.username ? { username: account.username } : {}),
                                     connected: true,
                                     pairingState: 'connected',
                                     pairingCode: null,
@@ -461,6 +651,8 @@ function createAppApi({ botToken, botUsername, store, engine }) {
                                     lastError: 'This session is also open in another place.',
                                 });
                             },
+                            onIncomingMessage: (message) => store.recordAppMessage(user.id, number, message),
+                            onOutgoingMessage: (message) => store.recordAppMessage(user.id, number, message),
                         });
                         if (!started) throw new Error('Pairing start was cancelled.');
                     } catch (error) {

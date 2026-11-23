@@ -1,9 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const crypto = require('node:crypto');
 
 // The panel's own data lives INSIDE the session folder, so "delete everything except session" updates
 // no longer wipe the list of paired users / broadcast audience.
 const FILE = path.join(process.cwd(), 'session', '.panel', 'store.json');
+const MESSAGE_DIR = path.join(path.dirname(FILE), 'messages');
 const LEGACY = path.join(__dirname, 'data', 'store.json');
 if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });
 if (!fs.existsSync(FILE) && fs.existsSync(LEGACY)) {
@@ -21,11 +23,126 @@ const APP_EVENT_TYPES = new Set([
     'session_deleted',
     'session_logged_out',
 ]);
+const MESSAGE_RETENTION_MS = 24 * 60 * 60 * 1000;
+const MAX_APP_MESSAGES = 5000;
+const MESSAGE_CONSENT_VERSION = 2;
+const validOwnerId = (ownerId) => Number.isSafeInteger(ownerId) && ownerId > 0
+    || typeof ownerId === 'string' && /^[a-f\d]{32}$/i.test(ownerId);
+
+function ownerIdFromFileName(fileName) {
+    const id = fileName.slice(0, -'.json'.length);
+    return /^\d+$/.test(id) ? Number(id) : id;
+}
+
+function ownerMessageFile(ownerId) {
+    if (!validOwnerId(ownerId)) throw new Error('Invalid app message owner.');
+    return path.join(MESSAGE_DIR, `${ownerId}.json`);
+}
+
+function readOwnerMessages(ownerId) {
+    try {
+        const messages = JSON.parse(fs.readFileSync(ownerMessageFile(ownerId), 'utf8'));
+        if (!Array.isArray(messages)) throw new Error(`Invalid message table for owner ${ownerId}.`);
+        return messages;
+    } catch (error) {
+        if (error.code === 'ENOENT') return [];
+        throw error;
+    }
+}
+
+function writeOwnerMessages(ownerId, messages) {
+    const file = ownerMessageFile(ownerId);
+    if (!messages.length) {
+        try {
+            fs.unlinkSync(file);
+        } catch (error) {
+            if (error.code !== 'ENOENT') throw error;
+        }
+        return;
+    }
+
+    fs.mkdirSync(MESSAGE_DIR, { recursive: true });
+    const temporaryFile = `${file}.${crypto.randomUUID()}.tmp`;
+    try {
+        fs.writeFileSync(temporaryFile, JSON.stringify(messages, null, 2), { mode: 0o600 });
+        fs.renameSync(temporaryFile, file);
+    } finally {
+        if (fs.existsSync(temporaryFile)) fs.unlinkSync(temporaryFile);
+    }
+}
+
+function listMessageOwnerIds() {
+    let files;
+    try {
+        files = fs.readdirSync(MESSAGE_DIR, { withFileTypes: true });
+    } catch (error) {
+        if (error.code === 'ENOENT') return [];
+        throw error;
+    }
+    return files
+        .filter((entry) => entry.isFile() && entry.name.endsWith('.json'))
+        .map((entry) => ownerIdFromFileName(entry.name))
+        .filter(validOwnerId);
+}
+
+function isRetainedMessage(message, ownerId, now) {
+    return message
+        && typeof message === 'object'
+        && message.ownerId === ownerId
+        && Number.isSafeInteger(message.at)
+        && message.at >= now - MESSAGE_RETENTION_MS
+        && message.at <= now + 5 * 60 * 1000
+        && message.consentVersion === MESSAGE_CONSENT_VERSION
+        && typeof message.text === 'string'
+        && message.text.length > 0;
+}
+
+function pruneOwnerMessages(ownerId, now = Date.now()) {
+    const messages = readOwnerMessages(ownerId);
+    const retained = messages.filter((message) => isRetainedMessage(message, ownerId, now));
+    const changed = retained.length !== messages.length;
+    if (changed) writeOwnerMessages(ownerId, retained);
+    return { messages: retained, changed };
+}
+
+function migrateLegacyAppMessages() {
+    if (!Object.hasOwn(data, 'appMessages')) return false;
+    const legacyMessages = Array.isArray(data.appMessages) ? data.appMessages : [];
+    const grouped = new Map();
+    for (const message of legacyMessages) {
+        if (!message || !validOwnerId(message.ownerId)) continue;
+        if (!grouped.has(message.ownerId)) grouped.set(message.ownerId, []);
+        grouped.get(message.ownerId).push(message);
+    }
+
+    for (const [ownerId, messages] of grouped) {
+        const existing = readOwnerMessages(ownerId);
+        const existingIds = new Set(existing.map((message) => message.id).filter(Boolean));
+        const merged = [...existing];
+        for (const message of messages) {
+            if (message.id && existingIds.has(message.id)) continue;
+            merged.push(message);
+            if (message.id) existingIds.add(message.id);
+        }
+        writeOwnerMessages(ownerId, merged);
+    }
+    delete data.appMessages;
+    return true;
+}
+
+function pruneAppMessages(now = Date.now()) {
+    let changed = migrateLegacyAppMessages();
+    for (const ownerId of listMessageOwnerIds()) {
+        if (pruneOwnerMessages(ownerId, now).changed) changed = true;
+    }
+    return changed;
+}
 
 function load() {
     try {
         if (fs.existsSync(FILE)) data = { ...data, ...JSON.parse(fs.readFileSync(FILE, 'utf8')) };
         else save();
+        if (pruneAppMessages()) save();
     } catch (err) {
         console.error('[store] load failed:', err.message);
     }
@@ -36,6 +153,14 @@ function save() {
 }
 
 load();
+setInterval(() => {
+    if (!pruneAppMessages()) return;
+    try {
+        save();
+    } catch (err) {
+        console.error('[store] message expiry cleanup failed:', err.message);
+    }
+}, 60 * 1000).unref();
 
 module.exports = {
     // telegram user id -> { chatId, name, since }  (everyone who ever opened the bot; used for broadcasts)
@@ -64,7 +189,15 @@ module.exports = {
         return data.sessions[number];
     },
     deleteSession(number) {
+        const session = data.sessions[number];
         delete data.sessions[number];
+        const ownerId = session?.appOwnerId ?? session?.telegramUserId;
+        const ownerIds = validOwnerId(ownerId) ? [ownerId] : listMessageOwnerIds();
+        for (const messageOwnerId of ownerIds) {
+            const messages = readOwnerMessages(messageOwnerId);
+            const retained = messages.filter((message) => message.sessionNumber !== number);
+            if (retained.length !== messages.length) writeOwnerMessages(messageOwnerId, retained);
+        }
         save();
     },
     sessionsForUser(ownerId) {
@@ -93,6 +226,113 @@ module.exports = {
                 && Number.isSafeInteger(event.at)
                 && event.at >= since
                 && APP_EVENT_TYPES.has(event.type));
+    },
+    isMessageRecordingEnabled(ownerId) {
+        const preference = data.messageRecording?.[ownerId];
+        return validOwnerId(ownerId)
+            && preference?.enabled === true
+            && preference.consentVersion === MESSAGE_CONSENT_VERSION;
+    },
+    setMessageRecording(ownerId, enabled, at = Date.now()) {
+        if (!validOwnerId(ownerId) || typeof enabled !== 'boolean' || !Number.isSafeInteger(at)) {
+            throw new Error('Invalid message recording preference.');
+        }
+        if (!data.messageRecording || typeof data.messageRecording !== 'object' || Array.isArray(data.messageRecording)) {
+            data.messageRecording = {};
+        }
+        if (enabled) {
+            data.messageRecording[ownerId] = {
+                enabled: true,
+                confirmedAt: at,
+                consentVersion: MESSAGE_CONSENT_VERSION,
+            };
+        }
+        else {
+            delete data.messageRecording[ownerId];
+            writeOwnerMessages(ownerId, []);
+        }
+        save();
+    },
+    recordAppMessage(ownerId, sessionNumber, message) {
+        if (!validOwnerId(ownerId) || !/^\d{8,15}$/.test(String(sessionNumber))) {
+            throw new Error('Invalid app message owner or session.');
+        }
+        const preference = data.messageRecording?.[ownerId];
+        if (preference?.enabled !== true || preference.consentVersion !== MESSAGE_CONSENT_VERSION) return false;
+        const {
+            direction,
+            source = direction === 'outgoing' ? 'bot' : 'contact',
+            sender,
+            senderNumber = '',
+            chat = '',
+            chatType = 'unknown',
+            text,
+            at = Date.now(),
+        } = message || {};
+        const waMessageId = typeof message?.waMessageId === 'string' && message.waMessageId.length <= 128
+            ? message.waMessageId
+            : '';
+        const now = Date.now();
+        if (!['incoming', 'outgoing'].includes(direction)
+            || !['contact', 'bot', 'personal'].includes(source)
+            || typeof sender !== 'string'
+            || typeof senderNumber !== 'string'
+            || typeof chat !== 'string'
+            || !['group', 'direct', 'unknown'].includes(chatType)
+            || typeof text !== 'string'
+            || !text.trim()
+            || !Number.isSafeInteger(at)) {
+            throw new Error('Invalid app message data.');
+        }
+        if (at < now - MESSAGE_RETENTION_MS || at > now + 5 * 60 * 1000) return false;
+
+        const { messages } = pruneOwnerMessages(ownerId, now);
+        const sessionNumberValue = String(sessionNumber);
+        const duplicate = waMessageId && messages.find((record) =>
+            record.sessionNumber === sessionNumberValue && record.waMessageId === waMessageId);
+        if (duplicate) {
+            if (source === 'bot' && duplicate.direction === 'outgoing' && duplicate.source !== 'bot') {
+                duplicate.source = 'bot';
+                duplicate.sender = sender.slice(0, 100);
+                duplicate.senderNumber = senderNumber.slice(0, 40);
+                writeOwnerMessages(ownerId, messages);
+            }
+            return false;
+        }
+        messages.push({
+            id: crypto.randomUUID(),
+            ownerId,
+            sessionNumber: sessionNumberValue,
+            direction,
+            source,
+            consentVersion: MESSAGE_CONSENT_VERSION,
+            sender: sender.slice(0, 100),
+            senderNumber: senderNumber.slice(0, 40),
+            chat: chat.slice(0, 80),
+            chatType,
+            text: text.trim().slice(0, 4000),
+            at,
+            ...(waMessageId ? { waMessageId } : {}),
+        });
+        if (messages.length > MAX_APP_MESSAGES) {
+            messages.splice(0, messages.length - MAX_APP_MESSAGES);
+        }
+        writeOwnerMessages(ownerId, messages);
+        return true;
+    },
+    appMessagesForUser(ownerId) {
+        return pruneOwnerMessages(ownerId).messages
+            .map(({ ownerId: _ownerId, waMessageId: _waMessageId, ...message }) => message)
+            .sort((left, right) => left.at - right.at)
+            .slice(-200);
+    },
+    allAppMessages() {
+        if (pruneAppMessages()) save();
+        return listMessageOwnerIds()
+            .flatMap((ownerId) => readOwnerMessages(ownerId))
+            .map(({ ownerId: _ownerId, waMessageId: _waMessageId, ...message }) => message)
+            .sort((left, right) => left.at - right.at)
+            .slice(-200);
     },
     allSessions() {
         return data.sessions;

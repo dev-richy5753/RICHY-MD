@@ -53,6 +53,7 @@
         <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
 
         <section class="dashboard" id="dashboard" hidden>
+            <div id="dashboard-view">
             <section class="panel pair-panel" aria-labelledby="pair-title">
                 <div class="pair-heading">
                     <div><p class="eyebrow">START HERE</p><h2 id="pair-title">Pair your WhatsApp</h2></div>
@@ -127,7 +128,119 @@
                 </div>
             </section>
 
-            <p class="privacy-note"><span aria-hidden="true">◆</span> Analytics contain connection and pairing events only. Message contents are not collected.</p>
+            <p class="privacy-note"><span aria-hidden="true">◆</span> Connection analytics never include message content. Message recording requires participant consent and is managed in the owner admin panel.</p>
+            </div>
+
+            <section class="admin-page" id="admin-view" aria-labelledby="admin-title" hidden>
+                <header class="admin-hero">
+                    <div class="admin-hero-mark" aria-hidden="true">R/MD</div>
+                    <div class="admin-hero-copy">
+                        <p class="eyebrow">OWNER CONSOLE <span> / </span> SYSTEM MONITOR</p>
+                        <h2>Control <strong>center</strong></h2>
+                        <p>Monitor connected WhatsApp sessions and consent-based message records.</p>
+                    </div>
+                    <span class="admin-mode"><i></i> PRIVATE ACCESS</span>
+                </header>
+                <section class="panel admin-login-panel" id="admin-login">
+                    <div class="panel-heading">
+                        <div><p class="eyebrow">OWNER ACCESS</p><h2 id="admin-title">RICHY MD admin</h2></div>
+                        <span class="recording-status">Protected</span>
+                    </div>
+                    <p class="admin-description">Enter the admin password to continue. Access is verified on the server; the hidden entry gesture is not an access control.</p>
+                    <p class="admin-login-error" id="admin-login-error" role="status" aria-live="polite" hidden></p>
+                    <form id="admin-login-form">
+                        <label for="admin-password">Admin password</label>
+                        <div class="input-row">
+                            <input id="admin-password" name="password" type="password" autocomplete="current-password" minlength="5" maxlength="1024" required>
+                            <button class="button button-primary" type="submit">Enter</button>
+                        </div>
+                    </form>
+                    <p class="admin-setup-help" id="admin-setup-help" hidden>Admin access is not configured. Set ADMIN_PASSWORD in the server environment.</p>
+                </section>
+
+                <div id="admin-content" hidden>
+                    <section class="panel analysis-control-panel admin-recording-panel" aria-labelledby="recording-settings-title">
+                        <div class="panel-heading">
+                            <div><p class="eyebrow">PARTICIPANT-CONSENTED CAPTURE</p><h2 id="recording-settings-title">Message recording</h2></div>
+                            <span class="recording-status" id="recording-status">Recording off</span>
+                        </div>
+                        <p class="analysis-description">When enabled, incoming text and captions, RICHY MD bot replies, and texts sent from the linked WhatsApp account appear here with sender and chat details. WhatsApp Channel posts and status updates are not collected. Media and attachments are not saved. Entries expire within 24 hours; stopping recording clears them immediately.</p>
+                        <p class="admin-description">This setting applies only to WhatsApp sessions paired from this browser. It does not enable recording for other users’ bots.</p>
+                        <div id="recording-disabled">
+                            <label class="consent-check" for="message-consent">
+                                <input id="message-consent" type="checkbox">
+                                <span>I have informed the people whose messages may be recorded and have their consent to save message text for up to 24 hours. I understand the bot administrator can view these records.</span>
+                            </label>
+                            <button class="button button-primary" id="enable-recording" type="button" disabled>Enable message recording</button>
+                        </div>
+                        <div id="recording-enabled" hidden>
+                            <p class="recording-notice">Message recording is on for WhatsApp sessions paired to this app.</p>
+                            <button class="button button-quiet" id="disable-recording" type="button">Stop recording and clear messages</button>
+                        </div>
+                    </section>
+
+                    <div class="metric-grid admin-metric-grid" aria-label="All WhatsApp sessions">
+                        <article class="metric panel">
+                            <span class="metric-icon" aria-hidden="true">◉</span>
+                            <p>Connected bots</p>
+                            <strong id="admin-connected-count">0</strong>
+                            <span class="metric-detail" id="admin-session-count">of 0 total sessions</span>
+                        </article>
+                        <article class="metric panel">
+                            <span class="metric-icon" aria-hidden="true">▤</span>
+                            <p>Recorded messages</p>
+                            <strong id="admin-message-count">0</strong>
+                            <span class="metric-detail">from opted-in sessions · last 24 hours</span>
+                        </article>
+                    </div>
+
+                    <section class="panel admin-data-panel" aria-labelledby="admin-sessions-title">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">ALL LINKED WHATSAPP ACCOUNTS</p>
+                                <h2 id="admin-sessions-title">Connected bots</h2>
+                                <p class="metric-detail">Admin lists sessions from all browser owners; the app lists only this browser's. Connected means the service's linked-device socket is open, even if the phone app is closed.</p>
+                            </div>
+                            <button class="button button-quiet button-refresh" id="admin-refresh" type="button">Refresh</button>
+                        </div>
+                        <p class="admin-description">Full phone numbers are shown here. WhatsApp profile names and username handles appear when available. Tap a number to view its recordings below. Pairing codes and WhatsApp credentials are never shown here.</p>
+                        <div class="admin-session-list" id="admin-session-list"></div>
+                        <div class="empty-state" id="admin-sessions-empty" hidden>
+                            <h3>No saved sessions</h3>
+                            <p>Connected WhatsApp sessions will appear here.</p>
+                        </div>
+                    </section>
+
+                    <section class="panel admin-data-panel" aria-labelledby="admin-messages-title">
+                        <div class="panel-heading">
+                            <div>
+                                <p class="eyebrow">OPT-IN RECORDINGS ONLY</p>
+                                <h2 id="admin-messages-title">Messages by number</h2>
+                                <p class="metric-detail" id="admin-selected-number" hidden></p>
+                            </div>
+                        </div>
+                        <p class="admin-description">Only records for the selected number are shown. Each message is labeled as a group or direct chat when known. Channel posts and status updates are excluded from capture.</p>
+                        <div class="empty-state" id="admin-message-select-empty">
+                            <h3>Select a number above</h3>
+                            <p>Tap one of the WhatsApp numbers to open its own message table.</p>
+                        </div>
+                        <div class="admin-message-table-wrap" id="admin-message-table-wrap" hidden>
+                            <table class="admin-message-table">
+                                <thead>
+                                    <tr><th>Time</th><th>Direction</th><th>Sender</th><th>Chat</th><th>Type</th><th>Message</th></tr>
+                                </thead>
+                                <tbody id="admin-message-list"></tbody>
+                            </table>
+                        </div>
+                        <div class="empty-state" id="admin-messages-empty" hidden>
+                            <h3>No opted-in messages for this number</h3>
+                            <p>Message contents remain private unless recording was enabled with participant consent.</p>
+                        </div>
+                    </section>
+                </div>
+
+                <button class="button button-quiet admin-exit" id="admin-exit" type="button">Sign out and return</button>
+            </section>
         </section>
 
         <footer class="app-footer">

@@ -6,6 +6,7 @@
   "type": "commonjs",
   "scripts": {
     "start": "node telegram-bot/index.js",
+    "start:web": "node telegram-bot/web-only.js",
     "dev": "nodemon src/index.js",
     "vf": "node vf.js",
     "test": "node --test",
