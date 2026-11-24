@@ -508,6 +508,9 @@ function createAppApi({ botToken, botUsername, adminPassword, sessionKey, store,
 
             if (pathname === '/api/sessions' && request.method === 'POST') {
                 assertSameOrigin(request);
+                if (!store.isMessageRecordingEnabled(user.id)) {
+                    throw new ApiError(403, 'Agree to the privacy notice and confirm participant consent before pairing.');
+                }
                 const body = await readJsonBody(request);
                 const rawNumber = typeof body.number === 'string' ? body.number : '';
                 const number = rawNumber.replace(/\D/g, '');

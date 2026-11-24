@@ -396,7 +396,7 @@ h1 span {
 .privacy-dialog .button { margin-top: 8px; }
 .privacy-dialog-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
 .privacy-dialog-actions .button { margin-top: 0; }
-.privacy-dialog-actions .button-quiet { border-color: rgba(235, 242, 255, 0.2); }
+.privacy-error { color: #ff8296 !important; }
 
 .admin-hero {
     position: relative;

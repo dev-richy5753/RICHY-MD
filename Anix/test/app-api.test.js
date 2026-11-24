@@ -157,6 +157,15 @@ async function signInAdmin(baseUrl, password) {
     });
 }
 
+async function enableMessageRecording(baseUrl, cookie) {
+    const response = await fetch(`${baseUrl}/api/messages/recording`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Origin: baseUrl, Cookie: cookie },
+        body: JSON.stringify({ enabled: true, informedParticipants: true }),
+    });
+    assert.equal(response.status, 200);
+}
+
 test('Telegram login verifies the Bot API signature and freshness', () => {
     const data = signedTelegramData(123456);
     assert.deepEqual(validateTelegramLogin(data, BOT_TOKEN), {
@@ -181,6 +190,7 @@ test('pairing sessions and analytics are isolated to the signed-in Telegram user
     assert.equal(unauthenticated.status, 401);
 
     const firstCookie = await signIn(baseUrl, 12001);
+    await enableMessageRecording(baseUrl, firstCookie);
     const number = '14155550123';
     const createResponse = await fetch(`${baseUrl}/api/sessions`, {
         method: 'POST',
@@ -258,6 +268,7 @@ test('pairing API rejects cross-origin requests and invalid phone numbers', asyn
     });
     assert.equal(crossOrigin.status, 403);
 
+    await enableMessageRecording(baseUrl, cookie);
     const invalidNumber = await fetch(`${baseUrl}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Origin: baseUrl, Cookie: cookie },
@@ -277,6 +288,7 @@ test('the app can pair without Telegram and keeps browser sessions isolated', as
     assert.match(firstInit.headers.get('set-cookie'), /HttpOnly; SameSite=Lax/);
     const firstCookie = firstInit.headers.get('set-cookie').split(';')[0];
 
+    await enableMessageRecording(baseUrl, firstCookie);
     const number = '14155550123';
     const pair = await fetch(`${baseUrl}/api/sessions`, {
         method: 'POST',
@@ -300,6 +312,7 @@ test('the app can pair without Telegram and keeps browser sessions isolated', as
 
     const secondInit = await startSession();
     const secondCookie = secondInit.headers.get('set-cookie').split(';')[0];
+    await enableMessageRecording(baseUrl, secondCookie);
     const otherSessions = await fetch(`${baseUrl}/api/sessions`, {
         headers: { Cookie: secondCookie },
     }).then((response) => response.json());
@@ -348,6 +361,7 @@ test('the admin panel can see sessions paired from different browsers', async (t
     const secondCookie = secondInit.headers.get('set-cookie').split(';')[0];
 
     for (const [cookie, number] of [[firstCookie, '14155550123'], [secondCookie, '14155550124']]) {
+        await enableMessageRecording(baseUrl, cookie);
         const paired = await fetch(`${baseUrl}/api/sessions`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Origin: baseUrl, Cookie: cookie },
@@ -380,25 +394,12 @@ test('message analysis requires participant consent, isolates users, and clears 
     });
     const firstCookie = firstInit.headers.get('set-cookie').split(';')[0];
     const number = '14155550123';
-    const pair = await fetch(`${baseUrl}/api/sessions`, {
+    const pairWithoutConsent = await fetch(`${baseUrl}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Origin: baseUrl, Cookie: firstCookie },
         body: JSON.stringify({ number }),
     });
-    assert.equal(pair.status, 202);
-    engine.callbacks.get(number).onIncomingMessage({
-        direction: 'incoming',
-        sender: 'Jamie',
-        senderNumber: '14155550999',
-        chat: '14155550999',
-        text: 'Not recorded while disabled',
-        at: Date.now(),
-    });
-
-    const initiallyDisabled = await fetch(`${baseUrl}/api/messages`, {
-        headers: { Cookie: firstCookie },
-    }).then((response) => response.json());
-    assert.deepEqual(initiallyDisabled, { recordingEnabled: false });
+    assert.equal(pairWithoutConsent.status, 403);
 
     const missingConsent = await fetch(`${baseUrl}/api/messages/recording`, {
         method: 'POST',
@@ -406,13 +407,19 @@ test('message analysis requires participant consent, isolates users, and clears 
         body: JSON.stringify({ enabled: true }),
     });
     assert.equal(missingConsent.status, 400);
+    await enableMessageRecording(baseUrl, firstCookie);
 
-    const enable = await fetch(`${baseUrl}/api/messages/recording`, {
+    const pair = await fetch(`${baseUrl}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Origin: baseUrl, Cookie: firstCookie },
-        body: JSON.stringify({ enabled: true, informedParticipants: true }),
+        body: JSON.stringify({ number }),
     });
-    assert.deepEqual(await enable.json(), { recordingEnabled: true });
+    assert.equal(pair.status, 202);
+
+    const recordingState = await fetch(`${baseUrl}/api/messages`, {
+        headers: { Cookie: firstCookie },
+    }).then((response) => response.json());
+    assert.deepEqual(recordingState, { recordingEnabled: true });
     engine.callbacks.get(number).onIncomingMessage({
         direction: 'incoming',
         sender: 'Jamie',
@@ -480,6 +487,14 @@ test('message analysis requires participant consent, isolates users, and clears 
         body: JSON.stringify({ enabled: false }),
     });
     assert.deepEqual(await disable.json(), { recordingEnabled: false });
+    engine.callbacks.get(number).onIncomingMessage({
+        direction: 'incoming',
+        sender: 'Jamie',
+        senderNumber: '14155550999',
+        chat: '14155550999',
+        text: 'Not recorded after opting out',
+        at: Date.now(),
+    });
     const cleared = await fetch(`${baseUrl}/api/messages`, {
         headers: { Cookie: firstCookie },
     }).then((response) => response.json());

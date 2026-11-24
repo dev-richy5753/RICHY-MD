@@ -372,12 +372,14 @@ function renderSelectedAdminMessages() {
 document.querySelector('#privacy-open').addEventListener('click', () => {
     document.querySelector('#privacy-dialog').showModal();
 });
-document.querySelector('#privacy-close').addEventListener('click', () => {
-    document.querySelector('#privacy-dialog').close();
+document.querySelector('#privacy-dialog').addEventListener('cancel', (event) => {
+    event.preventDefault();
 });
 document.querySelector('#privacy-enable-recording').addEventListener('click', async (event) => {
     const button = event.currentTarget;
+    const errorNotice = document.querySelector('#privacy-error');
     button.disabled = true;
+    errorNotice.hidden = true;
     try {
         await api('/api/messages/recording', {
             method: 'POST',
@@ -387,7 +389,8 @@ document.querySelector('#privacy-enable-recording').addEventListener('click', as
         document.querySelector('#privacy-dialog').close();
         showNotice('Message recording is on for sessions paired from this browser.', 'success');
     } catch (error) {
-        showNotice(error.message, 'error');
+        errorNotice.textContent = error.message;
+        errorNotice.hidden = false;
     } finally {
         button.disabled = false;
     }
@@ -463,10 +466,6 @@ async function refreshRecordingState(showErrors = true) {
         document.querySelector('#privacy-recording-status').textContent = result.recordingEnabled
             ? 'Recording is currently on for this browser. You can stop it in the admin panel.'
             : 'Recording is currently off.';
-        document.querySelector('#privacy-enable-recording').hidden = result.recordingEnabled;
-        document.querySelector('#privacy-close').textContent = result.recordingEnabled
-            ? 'Continue with recording on'
-            : 'Continue without recording';
         if (showErrors) hideNotice();
         return result.recordingEnabled;
     } catch (error) {
