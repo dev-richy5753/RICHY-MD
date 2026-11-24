@@ -131,3 +131,33 @@ test('duplicate outgoing WhatsApp events are stored once and prefer the bot sour
     assert.equal(result.messages[0].chatType, 'group');
     assert.equal(Object.hasOwn(result.messages[0], 'waMessageId'), false);
 });
+
+test('message history can be retrieved by WhatsApp session without another session hiding it', (t) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'richy-md-session-messages-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const owner = 'd'.repeat(32);
+    const sessionA = '14155550120';
+    const sessionB = '14155550121';
+    const script = `
+        const store = require(${JSON.stringify(storePath)});
+        const owner = ${JSON.stringify(owner)};
+        store.setMessageRecording(owner, true);
+        store.setSession(${JSON.stringify(sessionA)}, { appOwnerId: owner });
+        store.setSession(${JSON.stringify(sessionB)}, { appOwnerId: owner });
+        for (let index = 0; index < 205; index++) {
+            store.recordAppMessage(owner, ${JSON.stringify(sessionB)}, {
+                direction: 'incoming', sender: 'Jamie', text: 'Other session ' + index,
+            });
+        }
+        store.recordAppMessage(owner, ${JSON.stringify(sessionA)}, {
+            direction: 'incoming', sender: 'Jamie', text: 'Selected session message',
+        });
+        console.log(JSON.stringify(store.appMessagesForSession(${JSON.stringify(sessionA)}).map(({ text }) => text)));
+    `;
+    const messages = JSON.parse(execFileSync(process.execPath, ['-e', script], {
+        cwd: root,
+        encoding: 'utf8',
+    }));
+
+    assert.deepEqual(messages, ['Selected session message']);
+});

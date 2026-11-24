@@ -263,7 +263,7 @@ async function startSession(sessionId, opts = {}) {
     const sock = makeWASocket({
         ...(version ? { version } : {}),
         auth: state,
-        logger: pino({ level: 'silent' }),
+        logger: pino({ level: 'error' }),
         printQRInTerminal: false,
         browser: ['Ubuntu', 'Chrome', '20.0.04'],
         getMessage: async (key) => sentStore.get(key.id), // answers WhatsApp's resend requests

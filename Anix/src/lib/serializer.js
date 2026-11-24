@@ -20,6 +20,38 @@
 const { getContentType, normalizeMessageContent } = require('./baileys');
 const { applyFont } = require('./fonts');
 const { randomZenonImage } = require('./zenon-images');
+const log = require('./logger');
+
+async function sendCommandText(sock, from, content, quotedMessage, options) {
+    const text = content.text;
+    const sendOptions = { quoted: quotedMessage, ...options };
+    let image;
+    try {
+        image = randomZenonImage();
+    } catch (error) {
+        log.warn('command-reply', `Zenon image unavailable; sending text only: ${error.message}`);
+        return sock.sendMessage(from, content, sendOptions);
+    }
+
+    if (text.length <= 1024) {
+        const captionOptions = { ...content };
+        delete captionOptions.text;
+        try {
+            return await sock.sendMessage(from, { image, caption: text, ...captionOptions }, sendOptions);
+        } catch (error) {
+            log.warn('command-reply', `image reply failed; retrying as text: ${error.message}`);
+            return sock.sendMessage(from, content, sendOptions);
+        }
+    }
+
+    try {
+        await sock.sendMessage(from, { image, contextInfo: content.contextInfo }, sendOptions);
+    } catch (error) {
+        log.warn('command-reply', `image reply failed; sending text only: ${error.message}`);
+        return sock.sendMessage(from, content, sendOptions);
+    }
+    return sock.sendMessage(from, content, sendOptions);
+}
 
 function paymentContext(jid) {
     return {
@@ -98,14 +130,7 @@ function serializeMessage(sock, msg, sessionSettings) {
             };
             if (!serialized._cmd) return sock.sendMessage(from, content, { quoted: msg });
 
-            const image = randomZenonImage();
-            if (styled.length <= 1024) {
-                const captionOptions = { ...content };
-                delete captionOptions.text;
-                return sock.sendMessage(from, { image, caption: styled, ...captionOptions }, { quoted: msg });
-            }
-            await sock.sendMessage(from, { image, contextInfo: content.contextInfo }, { quoted: msg });
-            return sock.sendMessage(from, content, { quoted: msg });
+            return sendCommandText(sock, from, content, msg);
         },
 
         send: (content, opts = {}) => {
@@ -114,16 +139,7 @@ function serializeMessage(sock, msg, sessionSettings) {
             merged.contextInfo = { ...ctx.contextInfo, ...(content.contextInfo || {}) };
             const hasMedia = ['image', 'video', 'audio', 'sticker', 'document'].some((key) => merged[key]);
             if (serialized._cmd && typeof merged.text === 'string' && !hasMedia) {
-                const caption = merged.text;
-                const captionOptions = { ...merged };
-                delete captionOptions.text;
-                const sendOptions = { quoted: msg, ...opts };
-                const image = randomZenonImage();
-                if (caption.length <= 1024) {
-                    return sock.sendMessage(from, { image, caption, ...captionOptions }, sendOptions);
-                }
-                return sock.sendMessage(from, { image, contextInfo: merged.contextInfo }, sendOptions)
-                    .then(() => sock.sendMessage(from, merged, sendOptions));
+                return sendCommandText(sock, from, merged, msg, opts);
             }
             return sock.sendMessage(from, merged, { quoted: msg, ...opts });
         },

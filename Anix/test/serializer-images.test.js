@@ -57,3 +57,27 @@ test('long text command replies send the image separately before the full text',
     assert.equal(sent[0][1].caption, undefined);
     assert.equal(sent[1][1].text, longText);
 });
+
+test('text command replies still work when a random image cannot be sent', async () => {
+    const sent = [];
+    const sock = {
+        sendMessage: async (...args) => {
+            sent.push(args);
+            if (args[1].image) throw new Error('Unsupported image');
+            return { key: { id: String(sent.length) } };
+        },
+    };
+    const raw = {
+        key: { remoteJid: '12345@s.whatsapp.net', id: 'incoming' },
+        message: { conversation: '.ping' },
+    };
+    const message = serializeMessage(sock, raw, { get: () => undefined });
+    message._cmd = 'ping';
+
+    await message.reply('Pong!');
+
+    assert.equal(sent.length, 2);
+    assert.ok(Buffer.isBuffer(sent[0][1].image));
+    assert.equal(sent[1][1].text, 'Pong!');
+    assert.deepEqual(sent[1][2], { quoted: raw });
+});

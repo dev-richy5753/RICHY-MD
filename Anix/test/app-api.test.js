@@ -88,6 +88,11 @@ function createStore() {
         allAppMessages() {
             return allMessages().map(({ ownerId: _ownerId, ...message }) => message);
         },
+        appMessagesForSession(number) {
+            return allMessages()
+                .filter((message) => message.sessionNumber === number)
+                .map(({ ownerId: _ownerId, ...message }) => message);
+        },
     };
 }
 
@@ -469,6 +474,15 @@ test('message analysis requires participant consent, isolates users, and clears 
         { sender: 'Jamie', text: 'Hello', source: 'contact', sessionId: selectedSessionId, chatType: 'direct' },
         { sender: 'RICHY MD', text: 'Hi there', source: 'bot', sessionId: selectedSessionId, chatType: 'direct' },
         { sender: 'Jamie', text: 'Hello group', source: 'contact', sessionId: selectedSessionId, chatType: 'group' },
+    ]);
+    const selectedSessionMessages = await fetch(
+        `${baseUrl}/api/admin/messages?sessionId=${encodeURIComponent(selectedSessionId)}`,
+        { headers: { Cookie: adminCookie } },
+    ).then((response) => response.json());
+    assert.deepEqual(selectedSessionMessages.messages.map(({ text }) => text), [
+        'Hello',
+        'Hi there',
+        'Hello group',
     ]);
 
     const secondInit = await fetch(`${baseUrl}/api/app-session`, {

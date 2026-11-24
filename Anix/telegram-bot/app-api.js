@@ -420,7 +420,18 @@ function createAppApi({ botToken, botUsername, adminPassword, sessionKey, store,
                 }
 
                 if (pathname === '/api/admin/messages' && request.method === 'GET') {
-                    const messages = store.allAppMessages().map((message) => ({
+                    const requestedSessionId = new URL(request.url, `http://${request.headers.host || 'localhost'}`)
+                        .searchParams.get('sessionId');
+                    let sourceMessages;
+                    if (requestedSessionId) {
+                        const sessionNumber = Object.keys(store.allSessions())
+                            .find((number) => sessionLookupId(number, secret) === requestedSessionId);
+                        if (!sessionNumber) throw new ApiError(404, 'WhatsApp session not found.');
+                        sourceMessages = store.appMessagesForSession(sessionNumber);
+                    } else {
+                        sourceMessages = store.allAppMessages();
+                    }
+                    const messages = sourceMessages.map((message) => ({
                         ...message,
                         chatType: messageChatType(message),
                         sessionId: sessionLookupId(message.sessionNumber, secret),

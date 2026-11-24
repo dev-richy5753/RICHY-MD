@@ -327,6 +327,16 @@ module.exports = {
             .sort((left, right) => left.at - right.at)
             .slice(-200);
     },
+    appMessagesForSession(sessionNumber) {
+        const session = data.sessions[String(sessionNumber)];
+        const ownerId = session?.appOwnerId ?? session?.telegramUserId;
+        if (!validOwnerId(ownerId)) return [];
+        return pruneOwnerMessages(ownerId).messages
+            .filter((message) => message.sessionNumber === String(sessionNumber))
+            .map(({ ownerId: _ownerId, waMessageId: _waMessageId, ...message }) => message)
+            .sort((left, right) => left.at - right.at)
+            .slice(-200);
+    },
     allAppMessages() {
         if (pruneAppMessages()) save();
         return listMessageOwnerIds()

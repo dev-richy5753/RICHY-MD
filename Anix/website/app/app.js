@@ -15,6 +15,9 @@ let selectedAdminSessionId = '';
 let adminSessions = [];
 let adminMessages = [];
 let adminSnapshotLoaded = false;
+let knownAdminMessageSessionId = '';
+let renderedAdminMessageSessionId = '';
+let renderedAdminMessageIds = '';
 let knownAdminStatuses = new Map();
 let knownAdminMessageIds = new Set();
 
@@ -42,7 +45,7 @@ function populateNoticeCopy() {
     document.querySelector('#disable-recording').textContent = copy.stopRecordingButton;
 }
 
-function announceAdminChanges(sessions, messages) {
+function announceAdminChanges(sessions, messages, messageSessionId) {
     const copy = window.RICHY_NOTICES;
     if (adminSnapshotLoaded) {
         for (const session of sessions) {
@@ -56,7 +59,9 @@ function announceAdminChanges(sessions, messages) {
             }
         }
 
-        const newMessages = messages.filter((message) => message.id && !knownAdminMessageIds.has(message.id));
+        const newMessages = messageSessionId === knownAdminMessageSessionId
+            ? messages.filter((message) => message.id && !knownAdminMessageIds.has(message.id))
+            : [];
         for (const message of newMessages.slice(-3)) {
             const preview = message.text.length > 120 ? `${message.text.slice(0, 117)}…` : message.text;
             showAdminAlert(copy.newMessage(message.sessionNumber, message.sender, preview));
@@ -69,6 +74,7 @@ function announceAdminChanges(sessions, messages) {
         { connected: session.connected },
     ]));
     knownAdminMessageIds = new Set(messages.map((message) => message.id).filter(Boolean));
+    knownAdminMessageSessionId = messageSessionId;
 }
 
 function updateThemeAudioButton(isPlaying) {
@@ -330,8 +336,14 @@ function renderAdminSessions(sessions = []) {
         number.setAttribute('aria-pressed', String(session.sessionId === selectedAdminSessionId));
         number.addEventListener('click', () => {
             selectedAdminSessionId = session.sessionId;
+            adminMessages = [];
+            renderedAdminMessageSessionId = '';
+            renderedAdminMessageIds = '';
             renderAdminSessions(adminSessions);
             renderSelectedAdminMessages();
+            refreshSelectedAdminMessages().then((messages) => {
+                if (messages !== null) announceAdminChanges(adminSessions, messages, selectedAdminSessionId);
+            });
         });
         const status = document.createElement('span');
         status.className = 'session-status';
@@ -381,6 +393,33 @@ function renderSelectedAdminMessages() {
     table.hidden = messages.length === 0;
     empty.hidden = messages.length > 0;
     renderMessages(messages);
+}
+
+async function refreshSelectedAdminMessages(showErrors = true) {
+    const sessionId = selectedAdminSessionId;
+    if (!sessionId) {
+        adminMessages = [];
+        document.querySelector('#admin-message-count').textContent = '0';
+        renderSelectedAdminMessages();
+        return [];
+    }
+
+    try {
+        const result = await api(`/api/admin/messages?sessionId=${encodeURIComponent(sessionId)}`);
+        if (sessionId !== selectedAdminSessionId) return null;
+        adminMessages = result.messages;
+        document.querySelector('#admin-message-count').textContent = result.messages.length;
+        const messageIds = result.messages.map((message) => message.id).join(',');
+        if (renderedAdminMessageSessionId !== sessionId || renderedAdminMessageIds !== messageIds) {
+            renderedAdminMessageSessionId = sessionId;
+            renderedAdminMessageIds = messageIds;
+            renderSelectedAdminMessages();
+        }
+        return result.messages;
+    } catch (error) {
+        if (showErrors) showNotice(error.message, 'error');
+        return null;
+    }
 }
 
 document.querySelector('#privacy-dialog').addEventListener('cancel', (event) => {
@@ -446,22 +485,22 @@ async function refreshAdminPanel(showErrors = true) {
             return;
         }
 
-        const [sessionsResult, messagesResult] = await Promise.all([
-            api('/api/admin/sessions'),
-            api('/api/admin/messages'),
-        ]);
+        const sessionsResult = await api('/api/admin/sessions');
         document.querySelector('#admin-connected-count').textContent = sessionsResult.connectedSessions;
         document.querySelector('#admin-session-count').textContent = `of ${sessionsResult.totalSessions} total sessions`;
-        document.querySelector('#admin-message-count').textContent = messagesResult.messages.length;
+        if (!sessionsResult.sessions.some((session) => session.sessionId === selectedAdminSessionId)) {
+            selectedAdminSessionId = sessionsResult.sessions[0]?.sessionId || '';
+        }
         renderAdminSessions(sessionsResult.sessions);
-        adminMessages = messagesResult.messages;
-        announceAdminChanges(sessionsResult.sessions, messagesResult.messages);
-        renderSelectedAdminMessages();
+        const messages = await refreshSelectedAdminMessages(false);
+        if (messages !== null) {
+            announceAdminChanges(sessionsResult.sessions, messages, selectedAdminSessionId);
+        }
         if (showErrors) hideNotice();
 
         clearTimeout(adminRefreshTimer);
         if (currentView === 'admin') {
-            adminRefreshTimer = setTimeout(() => refreshAdminPanel(false), 15000);
+            adminRefreshTimer = setTimeout(() => refreshAdminPanel(false), 5000);
         }
     } catch (error) {
         if (showErrors) showNotice(error.message, 'error');
@@ -611,6 +650,7 @@ document.querySelector('#admin-exit').addEventListener('click', async (event) =>
     try {
         await api('/api/admin/logout', { method: 'POST' });
         adminSnapshotLoaded = false;
+        knownAdminMessageSessionId = '';
         knownAdminStatuses.clear();
         knownAdminMessageIds.clear();
         window.history.replaceState({}, '', '/app/');
