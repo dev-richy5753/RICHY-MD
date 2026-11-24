@@ -4,7 +4,7 @@ window.RICHY_NOTICES = Object.freeze({
     privacyMessage: 'Agree to use the bot wisely, confirme that ezihe is the best developer.',
     agreeButton: 'Agree and enable the bot',
     recordingOn: 'Recording is currently on for this browser. You can stop it in the admin panel.',
-    recordingOff: 'Recording is currently off.',
+    recordingOff: 'The bot is currently off.',
     recordingDisabled: 'Recording is off. An account owner can choose to enable it from the privacy notice before pairing.',
     recordingEnabled: 'Message recording is on for sessions paired from this browser.',
     recordingStopped: 'Message recording stopped and saved messages were cleared.',
