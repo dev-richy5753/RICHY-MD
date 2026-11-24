@@ -50,6 +50,9 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.match(appHtml, /id="privacy-dialog"/);
     assert.match(appHtml, /Agree and enable recording/);
     assert.doesNotMatch(appHtml, /Continue without recording/);
+    assert.match(appHtml, /Agree to record messages from sessions paired in this browser/);
+    assert.match(appHtml, /id="admin-view"/);
+    assert.match(await (await fetch(`${baseUrl}/app/app.js`)).text(), /if \(adminEntry\)[\s\S]*showView\('admin'\)[\s\S]*showPrivacyGateIfNeeded\(\)/);
     assert.match(appHtml, /id="admin-message-list"/);
     assert.match(appHtml, /id="admin-message-table-wrap"/);
     assert.match(appHtml, /<th>Type<\/th>/);
@@ -59,11 +62,10 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.match(appHtml, /id="admin-password"/);
     assert.match(appHtml, /id="admin-content"[\s\S]*id="recording-off-notice"/);
     assert.match(appHtml, /id="privacy-enable-recording"/);
-    assert.match(appHtml, /By tapping the button below, you agree to enable message recording/);
-    assert.match(appHtml, /confirm you have informed everyone affected and obtained their consent/);
+    assert.match(appHtml, /confirm everyone affected agrees/);
     assert.match(appHtml, /Admin lists sessions from all browser owners/);
     assert.match(appHtml, /WhatsApp Channel posts and status updates are not collected/);
-    assert.match(appHtml, /The administrator can view recorded messages/);
+    assert.match(appHtml, /The admin can read them/);
     assert.match(appHtml, /app-loading/);
     assert.match(appHtml, /richy-md-icon\.png/);
     assert.doesNotMatch(appHtml, /telegram-widget|Sign in with Telegram/);

@@ -474,6 +474,11 @@ async function refreshRecordingState(showErrors = true) {
     }
 }
 
+async function showPrivacyGateIfNeeded() {
+    const recordingEnabled = await refreshRecordingState(false);
+    if (!recordingEnabled) document.querySelector('#privacy-dialog').showModal();
+}
+
 function showView(view) {
     currentView = view;
     dashboardView.hidden = view !== 'dashboard';
@@ -596,6 +601,7 @@ document.querySelector('#admin-exit').addEventListener('click', async (event) =>
         knownAdminMessageIds.clear();
         window.history.replaceState({}, '', '/app/');
         showView('dashboard');
+        await showPrivacyGateIfNeeded();
     } catch (error) {
         showNotice(error.message, 'error');
     } finally {
@@ -632,10 +638,11 @@ async function initialize() {
         await api('/api/app-session', { method: 'POST' });
         setAppLoading(false);
         await refreshDashboard();
-        await refreshRecordingState(false);
-        document.querySelector('#privacy-dialog').showModal();
-        if (new URLSearchParams(window.location.search).get('admin') === '1') {
+        const adminEntry = new URLSearchParams(window.location.search).get('admin') === '1';
+        if (adminEntry) {
             showView('admin');
+        } else {
+            await showPrivacyGateIfNeeded();
         }
     } catch (error) {
         setAppLoading(false);
