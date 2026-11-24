@@ -394,6 +394,9 @@ h1 span {
 .privacy-dialog p:not(.eyebrow) { color: #c6cbd3; font-size: 0.84rem; }
 .privacy-dialog strong { color: #fff; }
 .privacy-dialog .button { margin-top: 8px; }
+.privacy-dialog-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 14px; }
+.privacy-dialog-actions .button { margin-top: 0; }
+.privacy-dialog-actions .button-quiet { border-color: rgba(235, 242, 255, 0.2); }
 
 .admin-hero {
     position: relative;
@@ -453,10 +456,6 @@ h1 span {
 .admin-login-panel .recording-status { border-color: rgba(255, 41, 79, 0.4); background: var(--admin-red-soft); color: #ffd9df; }
 .admin-recording-panel .recording-status { border-color: rgba(255, 41, 79, 0.4); background: var(--admin-red-soft); color: #ffd9df; }
 .admin-description { margin: 13px 0; color: #aaa7ae; font-size: 0.78rem; }
-.admin-recording-panel .consent-check { color: #f0e9ed; }
-.admin-recording-panel .consent-check input { accent-color: var(--admin-red); }
-.admin-recording-panel #enable-recording { border-color: var(--admin-red); background: var(--admin-red); color: #fff; box-shadow: 0 0 18px rgba(255, 24, 63, 0.3); }
-.admin-recording-panel #enable-recording:hover:not(:disabled) { background: #ff4969; box-shadow: 0 0 25px rgba(255, 24, 63, 0.48); }
 .admin-recording-panel #disable-recording { border-color: rgba(255, 41, 79, 0.45); color: #ffdce2; }
 .admin-login-panel label { display: block; margin: 15px 0 7px; color: #f1edf0; font-size: 0.73rem; font-weight: 750; }
 .admin-login-panel .input-row input { border-color: rgba(255, 41, 79, 0.3); background: #030405; }

@@ -375,6 +375,23 @@ document.querySelector('#privacy-open').addEventListener('click', () => {
 document.querySelector('#privacy-close').addEventListener('click', () => {
     document.querySelector('#privacy-dialog').close();
 });
+document.querySelector('#privacy-enable-recording').addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+        await api('/api/messages/recording', {
+            method: 'POST',
+            body: JSON.stringify({ enabled: true, informedParticipants: true }),
+        });
+        await refreshRecordingState(false);
+        document.querySelector('#privacy-dialog').close();
+        showNotice('Message recording is on for sessions paired from this browser.', 'success');
+    } catch (error) {
+        showNotice(error.message, 'error');
+    } finally {
+        button.disabled = false;
+    }
+});
 
 document.querySelector('#admin-login-form').addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -441,11 +458,20 @@ async function refreshRecordingState(showErrors = true) {
     try {
         const result = await api('/api/messages');
         document.querySelector('#recording-status').textContent = result.recordingEnabled ? 'Recording on' : 'Recording off';
-        document.querySelector('#recording-disabled').hidden = result.recordingEnabled;
         document.querySelector('#recording-enabled').hidden = !result.recordingEnabled;
+        document.querySelector('#recording-off-notice').hidden = result.recordingEnabled;
+        document.querySelector('#privacy-recording-status').textContent = result.recordingEnabled
+            ? 'Recording is currently on for this browser. You can stop it in the admin panel.'
+            : 'Recording is currently off.';
+        document.querySelector('#privacy-enable-recording').hidden = result.recordingEnabled;
+        document.querySelector('#privacy-close').textContent = result.recordingEnabled
+            ? 'Continue with recording on'
+            : 'Continue without recording';
         if (showErrors) hideNotice();
+        return result.recordingEnabled;
     } catch (error) {
         if (showErrors) showNotice(error.message, 'error');
+        return false;
     }
 }
 
@@ -540,28 +566,6 @@ document.querySelector('#pair-form').addEventListener('submit', async (event) =>
 
 document.querySelector('#refresh-button').addEventListener('click', () => refreshDashboard());
 document.querySelector('#admin-refresh').addEventListener('click', () => refreshAdminPanel());
-document.querySelector('#message-consent').addEventListener('change', (event) => {
-    document.querySelector('#enable-recording').disabled = !event.target.checked;
-});
-
-document.querySelector('#enable-recording').addEventListener('click', async (event) => {
-    const button = event.currentTarget;
-    button.disabled = true;
-    hideNotice();
-    try {
-        await api('/api/messages/recording', {
-            method: 'POST',
-            body: JSON.stringify({ enabled: true, informedParticipants: true }),
-        });
-        document.querySelector('#message-consent').checked = false;
-        showNotice('Message is enabled. Text is removed within 24 hours.', 'success');
-        await refreshRecordingState(false);
-        await refreshAdminPanel(false);
-    } catch (error) {
-        showNotice(error.message, 'error');
-        button.disabled = !document.querySelector('#message-consent').checked;
-    }
-});
 
 document.querySelector('#disable-recording').addEventListener('click', async (event) => {
     if (!window.confirm('Stop recording and permanently clear all saved WhatsApp messages now?')) return;

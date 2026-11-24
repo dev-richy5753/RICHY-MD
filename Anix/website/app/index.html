@@ -128,7 +128,7 @@
                 </div>
             </section>
 
-            <p class="privacy-note"><span aria-hidden="true">◆</span> Connection analytics never include message content. Message recording requires participant consent and is managed in the owner admin panel.</p>
+            <p class="privacy-note"><span aria-hidden="true">◆</span> Connection analytics never include message content. Message recording is off by default; the account owner can opt in from the privacy notice.</p>
             </div>
 
             <section class="admin-page" id="admin-view" aria-labelledby="admin-title" hidden>
@@ -167,17 +167,11 @@
                         </div>
                         <p class="analysis-description">When enabled, incoming text and captions, RICHY MD bot replies, and texts sent from the linked WhatsApp account appear here with sender and chat details. WhatsApp Channel posts and status updates are not collected. Media and attachments are not saved. Entries expire within 24 hours; stopping recording clears them immediately.</p>
                         <p class="admin-description">This setting applies only to WhatsApp sessions paired from this browser. It does not enable recording for other users’ bots.</p>
-                        <div id="recording-disabled">
-                            <label class="consent-check" for="message-consent">
-                                <input id="message-consent" type="checkbox">
-                                <span>I have informed the people whose messages may be recorded and have their consent to save message text for up to 24 hours. I understand the bot administrator can view these records.</span>
-                            </label>
-                            <button class="button button-primary" id="enable-recording" type="button" disabled>Enable message recording</button>
-                        </div>
                         <div id="recording-enabled" hidden>
-                            <p class="recording-notice">Message recording is on for WhatsApp sessions paired to this app.</p>
+                            <p class="recording-notice">Message recording is on for WhatsApp sessions paired from this browser.</p>
                             <button class="button button-quiet" id="disable-recording" type="button">Stop recording and clear messages</button>
                         </div>
+                        <p class="recording-notice" id="recording-off-notice">Recording is off. An account owner can choose to enable it from the privacy notice before pairing.</p>
                     </section>
 
                     <div class="metric-grid admin-metric-grid" aria-label="All WhatsApp sessions">
@@ -258,9 +252,13 @@
             <p class="eyebrow">PLEASE READ</p>
             <h2 id="privacy-title">Your WhatsApp privacy</h2>
             <p>The bot administrator can see paired phone numbers and connection status for accounts linked through this service.</p>
-            <p>Message contents are <strong>not recorded by default</strong>. They may be visible to the administrator only if the account owner enables message recording after informing everyone affected and obtaining their consent. Recorded text is deleted within 24 hours, or immediately when recording is switched off.</p>
+            <p>Message contents are <strong>not recorded by default</strong>. Choose below if you want to enable recording for WhatsApp sessions paired from this browser. If enabled, the administrator can view recorded messages. Only enable it after informing everyone affected and obtaining their consent. Text is deleted within 24 hours, or immediately when recording is switched off.</p>
             <p>Pairing codes and WhatsApp login credentials are never shown in the admin panel. Only pair an account you own or are authorized to use.</p>
-            <button class="button button-primary" id="privacy-close" type="button">I understand</button>
+            <p class="recording-notice" id="privacy-recording-status" aria-live="polite"></p>
+            <div class="privacy-dialog-actions">
+                <button class="button button-quiet" id="privacy-close" type="button">Continue without recording</button>
+                <button class="button button-primary" id="privacy-enable-recording" type="button">Agree and enable recording</button>
+            </div>
         </div>
     </dialog>
     <audio id="theme-audio" src="/assets/videos/music.mp3" autoplay preload="auto" loop></audio>

@@ -56,11 +56,13 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.match(appHtml, /Tap one of the WhatsApp numbers/);
     assert.match(appHtml, /id="admin-login-form"/);
     assert.match(appHtml, /id="admin-password"/);
-    assert.match(appHtml, /id="admin-content"[\s\S]*id="recording-disabled"/);
+    assert.match(appHtml, /id="admin-content"[\s\S]*id="recording-off-notice"/);
+    assert.match(appHtml, /id="privacy-enable-recording"/);
+    assert.match(appHtml, /informing everyone affected and obtaining their consent/);
     assert.match(appHtml, /Admin lists sessions from all browser owners/);
     assert.match(appHtml, /WhatsApp Channel posts and status updates are not collected/);
-    assert.match(appHtml, /informed the people whose messages may be recorded/);
-    assert.match(appHtml, /bot administrator can view these records/);
+    assert.match(appHtml, /informing everyone affected and obtaining their consent/);
+    assert.match(appHtml, /the administrator can view recorded messages/);
     assert.match(appHtml, /app-loading/);
     assert.match(appHtml, /richy-md-icon\.png/);
     assert.doesNotMatch(appHtml, /telegram-widget|Sign in with Telegram/);
