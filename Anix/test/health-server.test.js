@@ -45,6 +45,10 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.match(appHtml, /id="pairing-code"/);
     assert.doesNotMatch(appHtml, /analysis-nav|analysis-view|Message analysis/);
     assert.match(appHtml, /id="admin-view"/);
+    assert.match(appHtml, /id="admin-alerts"/);
+    assert.match(appHtml, /Owner admin/);
+    assert.match(appHtml, /id="privacy-dialog"/);
+    assert.match(appHtml, /Message contents are <strong>not recorded by default<\/strong>/);
     assert.match(appHtml, /id="admin-message-list"/);
     assert.match(appHtml, /id="admin-message-table-wrap"/);
     assert.match(appHtml, /<th>Type<\/th>/);

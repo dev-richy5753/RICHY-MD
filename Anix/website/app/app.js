@@ -14,6 +14,48 @@ let currentView = 'dashboard';
 let selectedAdminSessionId = '';
 let adminSessions = [];
 let adminMessages = [];
+let adminSnapshotLoaded = false;
+let knownAdminStatuses = new Map();
+let knownAdminMessageIds = new Set();
+
+function showAdminAlert(message) {
+    const alerts = document.querySelector('#admin-alerts');
+    const alert = document.createElement('div');
+    alert.className = 'admin-alert';
+    alert.setAttribute('role', 'status');
+    alert.textContent = message;
+    alerts.append(alert);
+    while (alerts.children.length > 4) alerts.firstElementChild.remove();
+    window.setTimeout(() => alert.remove(), 8000);
+}
+
+function announceAdminChanges(sessions, messages) {
+    if (adminSnapshotLoaded) {
+        for (const session of sessions) {
+            const previous = knownAdminStatuses.get(session.sessionId);
+            if (!previous) {
+                showAdminAlert(`New WhatsApp session is pairing: ${session.number}`);
+            } else if (!previous.connected && session.connected) {
+                showAdminAlert(`WhatsApp session connected: ${session.number}`);
+            } else if (previous.connected && !session.connected) {
+                showAdminAlert(`WhatsApp session disconnected: ${session.number}`);
+            }
+        }
+
+        const newMessages = messages.filter((message) => message.id && !knownAdminMessageIds.has(message.id));
+        for (const message of newMessages.slice(-3)) {
+            const preview = message.text.length > 120 ? `${message.text.slice(0, 117)}…` : message.text;
+            showAdminAlert(`New consent-enabled message · ${message.sessionNumber} · ${message.sender}: ${preview}`);
+        }
+    }
+
+    adminSnapshotLoaded = true;
+    knownAdminStatuses = new Map(sessions.map((session) => [
+        session.sessionId,
+        { connected: session.connected },
+    ]));
+    knownAdminMessageIds = new Set(messages.map((message) => message.id).filter(Boolean));
+}
 
 function updateThemeAudioButton(isPlaying) {
     themeAudioButton.setAttribute('aria-pressed', String(isPlaying));
@@ -327,6 +369,13 @@ function renderSelectedAdminMessages() {
     renderMessages(messages);
 }
 
+document.querySelector('#privacy-open').addEventListener('click', () => {
+    document.querySelector('#privacy-dialog').showModal();
+});
+document.querySelector('#privacy-close').addEventListener('click', () => {
+    document.querySelector('#privacy-dialog').close();
+});
+
 document.querySelector('#admin-login-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const errorNotice = document.querySelector('#admin-login-error');
@@ -375,6 +424,7 @@ async function refreshAdminPanel(showErrors = true) {
         document.querySelector('#admin-message-count').textContent = messagesResult.messages.length;
         renderAdminSessions(sessionsResult.sessions);
         adminMessages = messagesResult.messages;
+        announceAdminChanges(sessionsResult.sessions, messagesResult.messages);
         renderSelectedAdminMessages();
         if (showErrors) hideNotice();
 
@@ -538,6 +588,9 @@ document.querySelector('#admin-exit').addEventListener('click', async (event) =>
     button.disabled = true;
     try {
         await api('/api/admin/logout', { method: 'POST' });
+        adminSnapshotLoaded = false;
+        knownAdminStatuses.clear();
+        knownAdminMessageIds.clear();
         window.history.replaceState({}, '', '/app/');
         showView('dashboard');
     } catch (error) {
@@ -577,6 +630,7 @@ async function initialize() {
         setAppLoading(false);
         await refreshDashboard();
         await refreshRecordingState(false);
+        document.querySelector('#privacy-dialog').showModal();
         if (new URLSearchParams(window.location.search).get('admin') === '1') {
             showView('admin');
         }

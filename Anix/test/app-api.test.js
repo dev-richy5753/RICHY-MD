@@ -334,6 +334,44 @@ test('the app can pair without Telegram and keeps browser sessions isolated', as
     assert.equal((await fetch(`${baseUrl}/api/sessions`)).status, 401);
 });
 
+test('the admin panel can see sessions paired from different browsers', async (t) => {
+    const { baseUrl } = await createApiServer(t);
+    const firstInit = await fetch(`${baseUrl}/api/app-session`, {
+        method: 'POST',
+        headers: { Origin: baseUrl },
+    });
+    const firstCookie = firstInit.headers.get('set-cookie').split(';')[0];
+    const secondInit = await fetch(`${baseUrl}/api/app-session`, {
+        method: 'POST',
+        headers: { Origin: baseUrl },
+    });
+    const secondCookie = secondInit.headers.get('set-cookie').split(';')[0];
+
+    for (const [cookie, number] of [[firstCookie, '14155550123'], [secondCookie, '14155550124']]) {
+        const paired = await fetch(`${baseUrl}/api/sessions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Origin: baseUrl, Cookie: cookie },
+            body: JSON.stringify({ number }),
+        });
+        assert.equal(paired.status, 202);
+    }
+
+    const adminLogin = await signInAdmin(baseUrl, 'test-admin-password');
+    const adminCookie = adminLogin.headers.get('set-cookie').split(';')[0];
+    const adminSessions = await fetch(`${baseUrl}/api/admin/sessions`, {
+        headers: { Cookie: adminCookie },
+    }).then((response) => response.json());
+    assert.deepEqual(adminSessions.sessions.map((session) => session.number).sort(), [
+        '14155550123',
+        '14155550124',
+    ]);
+
+    const firstSessions = await fetch(`${baseUrl}/api/sessions`, {
+        headers: { Cookie: firstCookie },
+    }).then((response) => response.json());
+    assert.deepEqual(firstSessions.sessions.map((session) => session.number), ['14155550123']);
+});
+
 test('message analysis requires participant consent, isolates users, and clears data when disabled', async (t) => {
     const { baseUrl, engine } = await createApiServer(t);
     const firstInit = await fetch(`${baseUrl}/api/app-session`, {

@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const fs = require('node:fs');
 const path = require('node:path');
+const { getStorageRoot } = require('../src/lib/storage-root');
 
 function readSecret(filePath) {
     const secret = fs.readFileSync(filePath, 'utf8').trim();
@@ -10,7 +11,7 @@ function readSecret(filePath) {
 
 function loadAppSessionSecret({
     configuredSecret = process.env.APP_SESSION_SECRET,
-    filePath = path.join(process.cwd(), 'session', '.panel', 'app-session-secret'),
+    filePath = path.join(getStorageRoot(), '.panel', 'app-session-secret'),
 } = {}) {
     if (configuredSecret) return configuredSecret;
 

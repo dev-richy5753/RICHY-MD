@@ -918,7 +918,7 @@ async function startRestored(number, attempt = 1) {
 }
 
 /**
- * The `session/` folder is the source of truth: every login found there is started, even if the panel's
+ * The configured session storage folder is the source of truth: every login found there is started, even if the panel's
  * own list is missing (which is what happens when the panel files are replaced). Such "orphan" sessions run
  * immediately and are re-linked to their Telegram owner when that user sends /pair <number> (with a
  * verification code sent to the WhatsApp number itself).

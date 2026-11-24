@@ -29,9 +29,10 @@ const pino = require('pino');
 const config = require('./config');
 const { handleMessages, onSessionOpen, handleCalls, handleGroupUpdate, handlePresence } = require('./Anix');
 const { createSessionSettings } = require('./lib/settings');
+const { getStorageRoot } = require('./lib/storage-root');
 const log = require('./lib/logger');
 
-const AUTH_ROOT = path.join(process.cwd(), 'session');
+const AUTH_ROOT = getStorageRoot();
 const DATA_ROOT = path.join(process.cwd(), 'data', 'sessions');
 
 // sessionId -> { sock, settings, stopping, wiped }

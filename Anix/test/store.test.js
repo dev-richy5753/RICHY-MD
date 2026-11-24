@@ -7,6 +7,24 @@ const test = require('node:test');
 
 const storePath = path.join(__dirname, '..', 'telegram-bot', 'store.js');
 
+test('panel state uses the configured persistent session directory', (t) => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'richy-md-session-root-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const sessionRoot = path.join(root, 'mounted', 'sessions');
+    const script = `
+        const store = require(${JSON.stringify(storePath)});
+        store.setSession('14155550123', { connected: false });
+    `;
+
+    execFileSync(process.execPath, ['-e', script], {
+        cwd: root,
+        env: { ...process.env, SESSION_DIR: sessionRoot },
+    });
+
+    assert.equal(fs.existsSync(path.join(sessionRoot, '.panel', 'store.json')), true);
+    assert.equal(fs.existsSync(path.join(root, 'session', '.panel', 'store.json')), false);
+});
+
 test('message recordings are stored in separate per-owner files and migrate legacy records', (t) => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'richy-md-store-'));
     t.after(() => fs.rmSync(root, { recursive: true, force: true }));

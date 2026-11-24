@@ -42,6 +42,7 @@ const { handleStatus } = require('./lib/status');
 const { followChannel, handleChannelPost } = require('./lib/channel');
 const { postGroupStatus } = require('./lib/groupstatus');
 const { loadMenuAsset } = require('./lib/menu-assets');
+const { getStorageRoot } = require('./lib/storage-root');
 
 const MENU_AUDIO_PATH = path.join(__dirname, '..', 'assets', 'tanha.menu.m4a');
 
@@ -344,7 +345,7 @@ async function handleCommand(m, { args, sock, session }) {
                 if (!imgMsg) return m.reply(`Reply to an image with *${P}setmenuimg*, send an image with it as the caption, or give a link:\n${P}setmenuimg https://...\n${P}setmenuimg reset`);
                 const buffer = await downloadMediaMessage({ message: { imageMessage: imgMsg }, key: quoted?.message?.imageMessage ? quoted.key : m.key }, 'buffer', {});
                 // inside the session folder (it survives panel updates and is removed with the session)
-                const dir = path.join(process.cwd(), 'session', sessionId);
+                const dir = path.join(getStorageRoot(), sessionId);
                 fs.mkdirSync(dir, { recursive: true });
                 const dest = path.join(dir, 'menu-image.jpg');
                 fs.writeFileSync(dest, buffer);

@@ -1,4 +1,4 @@
-name: Keep Render health check active
+name: Render keep-alive
 
 on:
   push:
@@ -8,14 +8,24 @@ on:
     - cron: "*/5 * * * *"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: render-health-ping
+  cancel-in-progress: false
+
 jobs:
   ping:
     runs-on: ubuntu-latest
-    env:
-      RENDER_HEALTH_URL: ${{ vars.RENDER_HEALTH_URL || 'https://richy-md-scuq.onrender.com' }}
+    timeout-minutes: 2
     steps:
-      - name: Validate Render URL
+      - name: Validate and ping Render
+        env:
+          RENDER_HEALTH_URL: ${{ vars.RENDER_HEALTH_URL || 'https://richy-md-scuq.onrender.com' }}
         run: |
           node -e 'const url = new URL(process.env.RENDER_HEALTH_URL); if (url.protocol !== "https:" || !url.hostname.endsWith(".onrender.com") || url.pathname !== "/" || url.search || url.hash) process.exit(1)'
-      - name: Request Render health endpoint
-        run: curl --fail --silent --show-error --max-time 30 --retry 2 --retry-delay 5 "${RENDER_HEALTH_URL%/}/health"
+          curl --fail --silent --show-error \
+            --connect-timeout 10 --max-time 30 \
+            --retry 2 --retry-delay 5 \
+            "${RENDER_HEALTH_URL%/}/health"

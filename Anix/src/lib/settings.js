@@ -19,6 +19,7 @@
 */
 const fs = require('fs');
 const path = require('path');
+const { getStorageRoot } = require('./storage-root');
 
 /**
  * One settings store per paired WhatsApp session, keyed by phone number.
@@ -28,7 +29,7 @@ const path = require('path');
 function createSessionSettings(sessionId, defaultPrefix, defaultMenuImage) {
     // Lives inside the session folder on purpose: whoever keeps `session/` when updating the panel keeps
     // every user's customisation (sudo, bans, antilink, bot name...) together with their WhatsApp login.
-    const dir = path.join(process.cwd(), 'session', sessionId);
+    const dir = path.join(getStorageRoot(), sessionId);
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     const file = path.join(dir, 'bot-settings.json');
     const legacy = path.join(process.cwd(), 'data', 'sessions', sessionId, 'settings.json'); // old location

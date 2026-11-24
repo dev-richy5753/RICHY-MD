@@ -1,10 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('node:crypto');
+const { getStorageRoot } = require('../src/lib/storage-root');
 
 // The panel's own data lives INSIDE the session folder, so "delete everything except session" updates
 // no longer wipe the list of paired users / broadcast audience.
-const FILE = path.join(process.cwd(), 'session', '.panel', 'store.json');
+const FILE = path.join(getStorageRoot(), '.panel', 'store.json');
 const MESSAGE_DIR = path.join(path.dirname(FILE), 'messages');
 const LEGACY = path.join(__dirname, 'data', 'store.json');
 if (!fs.existsSync(path.dirname(FILE))) fs.mkdirSync(path.dirname(FILE), { recursive: true });

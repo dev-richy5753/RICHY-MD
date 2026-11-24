@@ -348,6 +348,53 @@ h1 span {
     gap: 15px;
 }
 
+.admin-alerts {
+    position: fixed;
+    z-index: 5;
+    top: 16px;
+    right: 16px;
+    display: grid;
+    width: min(390px, calc(100vw - 32px));
+    gap: 8px;
+    pointer-events: none;
+}
+
+.admin-alert {
+    padding: 13px 15px;
+    border: 1px solid rgba(255, 41, 79, 0.58);
+    border-radius: 12px;
+    background: rgba(15, 7, 10, 0.97);
+    color: #fff1f4;
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.5), 0 0 20px rgba(255, 41, 79, 0.15);
+    font-size: 0.78rem;
+    overflow-wrap: anywhere;
+    animation: admin-alert-in 180ms ease-out;
+}
+
+@keyframes admin-alert-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.privacy-dialog {
+    width: min(520px, calc(100% - 32px));
+    max-height: min(80vh, 640px);
+    padding: 0;
+    border: 1px solid rgba(235, 242, 255, 0.2);
+    border-radius: 18px;
+    background: #0c0e12;
+    color: var(--text);
+    box-shadow: 0 24px 90px rgba(0, 0, 0, 0.75);
+}
+
+.privacy-dialog::backdrop { background: rgba(0, 0, 0, 0.76); backdrop-filter: blur(5px); }
+.privacy-dialog-content { padding: clamp(20px, 5vw, 30px); }
+.privacy-dialog .eyebrow { color: #c5ceda; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.13em; }
+.privacy-dialog h2 { margin: 4px 0 16px; font-size: 1.55rem; letter-spacing: -0.04em; }
+.privacy-dialog p:not(.eyebrow) { color: #c6cbd3; font-size: 0.84rem; }
+.privacy-dialog strong { color: #fff; }
+.privacy-dialog .button { margin-top: 8px; }
+
 .admin-hero {
     position: relative;
     display: flex;
@@ -445,6 +492,9 @@ h1 span {
 .admin-exit:hover:not(:disabled) { border-color: var(--admin-red); background: rgba(255, 41, 79, 0.16); box-shadow: 0 0 17px rgba(255, 24, 63, 0.16); }
 .admin-page :focus-visible { outline-color: var(--admin-red); box-shadow: 0 0 14px var(--admin-red-glow); }
 .app-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 23px 0 28px; border-top: 1px solid var(--line); color: #777175; font-size: 0.7rem; }
+.app-footer-actions { display: flex; align-items: center; gap: 18px; }
+.privacy-link { padding: 0; border: 0; background: transparent; color: #c5bec0; font: inherit; text-decoration: underline; cursor: pointer; }
+.privacy-link:hover { color: #fff; }
 .app-footer a { color: #c5bec0; text-decoration: none; }
 .app-footer a:hover { color: #fff; text-shadow: 0 0 12px rgba(226, 238, 255, 0.25); }
 
@@ -488,6 +538,7 @@ h1 span {
     .session-actions { flex-direction: column-reverse; align-items: flex-end; gap: 6px; }
     .session-uptime { font-size: 0.61rem; }
     .app-footer { align-items: flex-start; flex-direction: column; gap: 8px; }
+    .app-footer-actions { align-items: flex-start; flex-direction: column; gap: 8px; }
 }
 
 @media (max-width: 380px) {

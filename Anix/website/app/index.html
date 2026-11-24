@@ -132,6 +132,7 @@
             </div>
 
             <section class="admin-page" id="admin-view" aria-labelledby="admin-title" hidden>
+                <div class="admin-alerts" id="admin-alerts" aria-live="polite" aria-atomic="false"></div>
                 <header class="admin-hero">
                     <div class="admin-hero-mark" aria-hidden="true">R/MD</div>
                     <div class="admin-hero-copy">
@@ -245,9 +246,23 @@
 
         <footer class="app-footer">
             <a href="/">← Back to RICHY MD</a>
-            <span>Only pair WhatsApp numbers you own or are authorized to use.</span>
+            <div class="app-footer-actions">
+                <a class="privacy-link" href="/app/?admin=1">Owner admin</a>
+                <button class="privacy-link" id="privacy-open" type="button">Privacy notice</button>
+                <span>Only pair WhatsApp numbers you own or are authorized to use.</span>
+            </div>
         </footer>
     </main>
+    <dialog class="privacy-dialog" id="privacy-dialog" aria-labelledby="privacy-title">
+        <div class="privacy-dialog-content">
+            <p class="eyebrow">PLEASE READ</p>
+            <h2 id="privacy-title">Your WhatsApp privacy</h2>
+            <p>The bot administrator can see paired phone numbers and connection status for accounts linked through this service.</p>
+            <p>Message contents are <strong>not recorded by default</strong>. They may be visible to the administrator only if the account owner enables message recording after informing everyone affected and obtaining their consent. Recorded text is deleted within 24 hours, or immediately when recording is switched off.</p>
+            <p>Pairing codes and WhatsApp login credentials are never shown in the admin panel. Only pair an account you own or are authorized to use.</p>
+            <button class="button button-primary" id="privacy-close" type="button">I understand</button>
+        </div>
+    </dialog>
     <audio id="theme-audio" src="/assets/videos/music.mp3" autoplay preload="auto" loop></audio>
 </body>
 </html>
