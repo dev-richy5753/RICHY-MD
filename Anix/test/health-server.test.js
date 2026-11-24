@@ -50,6 +50,8 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.match(appHtml, /id="privacy-dialog"/);
     assert.match(appHtml, /Agree and enable recording/);
     assert.doesNotMatch(appHtml, /Continue without recording/);
+    assert.match(appHtml, /app\.js\?v=19/);
+    assert.match(appHtml, /app\.css\?v=19/);
     assert.match(appHtml, /Agree to record messages from sessions paired in this browser/);
     assert.match(appHtml, /id="admin-view"/);
     assert.match(await (await fetch(`${baseUrl}/app/app.js`)).text(), /if \(adminEntry\)[\s\S]*showView\('admin'\)[\s\S]*showPrivacyGateIfNeeded\(\)/);
