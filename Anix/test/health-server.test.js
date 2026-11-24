@@ -46,7 +46,7 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.doesNotMatch(appHtml, /analysis-nav|analysis-view|Message analysis/);
     assert.match(appHtml, /id="admin-view"/);
     assert.match(appHtml, /id="admin-alerts"/);
-    assert.match(appHtml, /Owner admin/);
+    assert.doesNotMatch(appHtml, /Owner admin|privacy-open/);
     assert.match(appHtml, /id="privacy-dialog"/);
     assert.match(appHtml, /Agree and enable recording/);
     assert.doesNotMatch(appHtml, /Continue without recording/);

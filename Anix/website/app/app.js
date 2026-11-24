@@ -369,9 +369,6 @@ function renderSelectedAdminMessages() {
     renderMessages(messages);
 }
 
-document.querySelector('#privacy-open').addEventListener('click', () => {
-    document.querySelector('#privacy-dialog').showModal();
-});
 document.querySelector('#privacy-dialog').addEventListener('cancel', (event) => {
     event.preventDefault();
 });

@@ -491,9 +491,6 @@ h1 span {
 .admin-exit:hover:not(:disabled) { border-color: var(--admin-red); background: rgba(255, 41, 79, 0.16); box-shadow: 0 0 17px rgba(255, 24, 63, 0.16); }
 .admin-page :focus-visible { outline-color: var(--admin-red); box-shadow: 0 0 14px var(--admin-red-glow); }
 .app-footer { display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 23px 0 28px; border-top: 1px solid var(--line); color: #777175; font-size: 0.7rem; }
-.app-footer-actions { display: flex; align-items: center; gap: 18px; }
-.privacy-link { padding: 0; border: 0; background: transparent; color: #c5bec0; font: inherit; text-decoration: underline; cursor: pointer; }
-.privacy-link:hover { color: #fff; }
 .app-footer a { color: #c5bec0; text-decoration: none; }
 .app-footer a:hover { color: #fff; text-shadow: 0 0 12px rgba(226, 238, 255, 0.25); }
 
@@ -537,7 +534,6 @@ h1 span {
     .session-actions { flex-direction: column-reverse; align-items: flex-end; gap: 6px; }
     .session-uptime { font-size: 0.61rem; }
     .app-footer { align-items: flex-start; flex-direction: column; gap: 8px; }
-    .app-footer-actions { align-items: flex-start; flex-direction: column; gap: 8px; }
 }
 
 @media (max-width: 380px) {
