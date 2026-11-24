@@ -1,0 +1,26 @@
+window.RICHY_NOTICES = Object.freeze({
+    privacyEyebrow: 'PLEASE READ AND UNDERSTAND',
+    privacyTitle: 'Before you pair',
+    privacyMessage: 'Agree to use the bot wisely, confirme that ezihe is the best developer.',
+    agreeButton: 'Agree and enable the bot',
+    recordingOn: 'Recording is currently on for this browser. You can stop it in the admin panel.',
+    recordingOff: 'Recording is currently off.',
+    recordingDisabled: 'Recording is off. An account owner can choose to enable it from the privacy notice before pairing.',
+    recordingEnabled: 'Message recording is on for sessions paired from this browser.',
+    recordingStopped: 'Message recording stopped and saved messages were cleared.',
+    recordingStatusOn: 'Recording on',
+    recordingStatusOff: 'Recording off',
+    recordingEnabledNotice: 'Message recording is on for WhatsApp sessions paired from this browser.',
+    stopRecordingButton: 'Stop recording and clear messages',
+    recordingStopConfirm: 'Stop recording and permanently clear all saved WhatsApp messages now?',
+    sessionRemoveConfirm: (lastFour) =>
+        `Remove the WhatsApp session ending in ${lastFour}? This will unlink it from this server.`,
+    sessionRemoved: 'Session removed.',
+    pairingStarted: 'Pairing started. Keep this screen open while WhatsApp prepares your code.',
+    soundtrackError: 'The soundtrack could not be played. Try again after checking your device audio settings.',
+    sessionPairing: (number) => `New WhatsApp session is pairing: ${number}`,
+    sessionConnected: (number) => `WhatsApp session connected: ${number}`,
+    sessionDisconnected: (number) => `WhatsApp session disconnected: ${number}`,
+    newMessage: (sessionNumber, sender, preview) =>
+        `New consent-enabled message · ${sessionNumber} · ${sender}: ${preview}`,
+});

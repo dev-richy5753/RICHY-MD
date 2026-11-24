@@ -1,8 +1,9 @@
-const CACHE_NAME = 'richy-md-app-shell-v19';
+const CACHE_NAME = 'richy-md-app-shell-v22';
 const APP_SHELL = [
     '/app/',
-    '/app/app.css',
-    '/app/app.js',
+    '/app/app.css?v=22',
+    '/app/notices.js?v=22',
+    '/app/app.js?v=22',
     '/app/manifest.webmanifest',
     '/app/icon-512.png',
     '/app/icon.webp',
@@ -31,6 +32,15 @@ self.addEventListener('fetch', (event) => {
 
     if (requestUrl.pathname === '/app/' || requestUrl.pathname === '/app') {
         event.respondWith(fetch(event.request).catch(() => caches.match('/app/')));
+        return;
+    }
+
+    if (requestUrl.pathname === '/app/notices.js' || requestUrl.pathname === '/app/app.js') {
+        event.respondWith(fetch(event.request).then((response) => {
+            const responseCopy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseCopy));
+            return response;
+        }).catch(() => caches.match(event.request)));
         return;
     }
 

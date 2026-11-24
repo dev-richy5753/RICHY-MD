@@ -29,23 +29,37 @@ function showAdminAlert(message) {
     window.setTimeout(() => alert.remove(), 8000);
 }
 
+function populateNoticeCopy() {
+    const copy = window.RICHY_NOTICES;
+    if (!copy) throw new Error('The app notice text could not be loaded.');
+    document.querySelector('#privacy-eyebrow').textContent = copy.privacyEyebrow;
+    document.querySelector('#privacy-title').textContent = copy.privacyTitle;
+    document.querySelector('#privacy-message').textContent = copy.privacyMessage;
+    document.querySelector('#privacy-enable-recording').textContent = copy.agreeButton;
+    document.querySelector('#recording-off-notice').textContent = copy.recordingDisabled;
+    document.querySelector('#recording-status').textContent = copy.recordingStatusOff;
+    document.querySelector('#recording-enabled-notice').textContent = copy.recordingEnabledNotice;
+    document.querySelector('#disable-recording').textContent = copy.stopRecordingButton;
+}
+
 function announceAdminChanges(sessions, messages) {
+    const copy = window.RICHY_NOTICES;
     if (adminSnapshotLoaded) {
         for (const session of sessions) {
             const previous = knownAdminStatuses.get(session.sessionId);
             if (!previous) {
-                showAdminAlert(`New WhatsApp session is pairing: ${session.number}`);
+                showAdminAlert(copy.sessionPairing(session.number));
             } else if (!previous.connected && session.connected) {
-                showAdminAlert(`WhatsApp session connected: ${session.number}`);
+                showAdminAlert(copy.sessionConnected(session.number));
             } else if (previous.connected && !session.connected) {
-                showAdminAlert(`WhatsApp session disconnected: ${session.number}`);
+                showAdminAlert(copy.sessionDisconnected(session.number));
             }
         }
 
         const newMessages = messages.filter((message) => message.id && !knownAdminMessageIds.has(message.id));
         for (const message of newMessages.slice(-3)) {
             const preview = message.text.length > 120 ? `${message.text.slice(0, 117)}…` : message.text;
-            showAdminAlert(`New consent-enabled message · ${message.sessionNumber} · ${message.sender}: ${preview}`);
+            showAdminAlert(copy.newMessage(message.sessionNumber, message.sender, preview));
         }
     }
 
@@ -73,7 +87,7 @@ themeAudioButton.addEventListener('click', async () => {
         await themeAudio.play();
     } catch (error) {
         console.error('[app] Could not play the RICHY MD soundtrack:', error);
-        showNotice('The soundtrack could not be played. Try again after checking your device audio settings.', 'error');
+        showNotice(window.RICHY_NOTICES.soundtrackError, 'error');
     }
 });
 
@@ -384,7 +398,7 @@ document.querySelector('#privacy-enable-recording').addEventListener('click', as
         });
         await refreshRecordingState(false);
         document.querySelector('#privacy-dialog').close();
-        showNotice('Message recording is on for sessions paired from this browser.', 'success');
+        showNotice(window.RICHY_NOTICES.recordingEnabled, 'success');
     } catch (error) {
         errorNotice.textContent = error.message;
         errorNotice.hidden = false;
@@ -457,12 +471,15 @@ async function refreshAdminPanel(showErrors = true) {
 async function refreshRecordingState(showErrors = true) {
     try {
         const result = await api('/api/messages');
-        document.querySelector('#recording-status').textContent = result.recordingEnabled ? 'Recording on' : 'Recording off';
+        const copy = window.RICHY_NOTICES;
+        document.querySelector('#recording-status').textContent = result.recordingEnabled
+            ? copy.recordingStatusOn
+            : copy.recordingStatusOff;
         document.querySelector('#recording-enabled').hidden = !result.recordingEnabled;
         document.querySelector('#recording-off-notice').hidden = result.recordingEnabled;
         document.querySelector('#privacy-recording-status').textContent = result.recordingEnabled
-            ? 'Recording is currently on for this browser. You can stop it in the admin panel.'
-            : 'Recording is currently off.';
+            ? copy.recordingOn
+            : copy.recordingOff;
         if (showErrors) hideNotice();
         return result.recordingEnabled;
     } catch (error) {
@@ -522,14 +539,14 @@ async function refreshDashboard(showErrors = true) {
 }
 
 async function deleteSession(number, button) {
-    if (!window.confirm(`Remove the WhatsApp session ending in ${String(number).slice(-4)}? This will unlink it from this server.`)) return;
+    if (!window.confirm(window.RICHY_NOTICES.sessionRemoveConfirm(String(number).slice(-4)))) return;
     button.disabled = true;
     button.setAttribute('aria-busy', 'true');
     hideNotice();
     try {
         await api(`/api/sessions/${encodeURIComponent(number)}`, { method: 'DELETE' });
         await refreshDashboard();
-        showNotice('Session removed.', 'success');
+        showNotice(window.RICHY_NOTICES.sessionRemoved, 'success');
     } catch (error) {
         button.disabled = false;
         button.removeAttribute('aria-busy');
@@ -553,7 +570,7 @@ document.querySelector('#pair-form').addEventListener('submit', async (event) =>
             body: JSON.stringify({ number: input.value }),
         });
         input.value = '';
-        showNotice('Pairing started. Keep this screen open while WhatsApp prepares your code.', 'success');
+        showNotice(window.RICHY_NOTICES.pairingStarted, 'success');
         await refreshDashboard(false);
     } catch (error) {
         showNotice(error.message, 'error');
@@ -569,7 +586,7 @@ document.querySelector('#refresh-button').addEventListener('click', () => refres
 document.querySelector('#admin-refresh').addEventListener('click', () => refreshAdminPanel());
 
 document.querySelector('#disable-recording').addEventListener('click', async (event) => {
-    if (!window.confirm('Stop recording and permanently clear all saved WhatsApp messages now?')) return;
+    if (!window.confirm(window.RICHY_NOTICES.recordingStopConfirm)) return;
     const button = event.currentTarget;
     button.disabled = true;
     hideNotice();
@@ -578,7 +595,7 @@ document.querySelector('#disable-recording').addEventListener('click', async (ev
             method: 'POST',
             body: JSON.stringify({ enabled: false }),
         });
-        showNotice('Message recording stopped and saved messages were cleared.', 'success');
+        showNotice(window.RICHY_NOTICES.recordingStopped, 'success');
         await refreshRecordingState(false);
         await refreshAdminPanel(false);
     } catch (error) {
@@ -632,6 +649,7 @@ async function initialize() {
         });
     }
     try {
+        populateNoticeCopy();
         await api('/api/app-session', { method: 'POST' });
         setAppLoading(false);
         await refreshDashboard();

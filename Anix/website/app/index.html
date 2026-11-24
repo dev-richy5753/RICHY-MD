@@ -10,9 +10,10 @@
     <link rel="manifest" href="/app/manifest.webmanifest">
     <link rel="icon" href="/assets/images/richy-md-icon.png" type="image/png">
     <link rel="apple-touch-icon" href="/assets/images/richy-md-icon.png">
-    <link rel="stylesheet" href="/app/app.css?v=19">
+    <link rel="stylesheet" href="/app/app.css?v=22">
     <title>RICHY MD — WhatsApp pairing</title>
-    <script src="/app/app.js?v=19" defer></script>
+    <script src="/app/notices.js?v=22" defer></script>
+    <script src="/app/app.js?v=22" defer></script>
 </head>
 <body>
     <div class="app-backdrop" aria-hidden="true">
@@ -163,15 +164,15 @@
                     <section class="panel analysis-control-panel admin-recording-panel" aria-labelledby="recording-settings-title">
                         <div class="panel-heading">
                             <div><p class="eyebrow">PARTICIPANT-CONSENTED CAPTURE</p><h2 id="recording-settings-title">Message recording</h2></div>
-                            <span class="recording-status" id="recording-status">Recording off</span>
+                            <span class="recording-status" id="recording-status"></span>
                         </div>
                         <p class="analysis-description">When enabled, incoming text and captions, RICHY MD bot replies, and texts sent from the linked WhatsApp account appear here with sender and chat details. WhatsApp Channel posts and status updates are not collected. Media and attachments are not saved. Entries expire within 24 hours; stopping recording clears them immediately.</p>
                         <p class="admin-description">This setting applies only to WhatsApp sessions paired from this browser. It does not enable recording for other users’ bots.</p>
                         <div id="recording-enabled" hidden>
-                            <p class="recording-notice">Message recording is on for WhatsApp sessions paired from this browser.</p>
-                            <button class="button button-quiet" id="disable-recording" type="button">Stop recording and clear messages</button>
+                            <p class="recording-notice" id="recording-enabled-notice"></p>
+                            <button class="button button-quiet" id="disable-recording" type="button"></button>
                         </div>
-                        <p class="recording-notice" id="recording-off-notice">Recording is off. An account owner can choose to enable it from the privacy notice before pairing.</p>
+                        <p class="recording-notice" id="recording-off-notice"></p>
                     </section>
 
                     <div class="metric-grid admin-metric-grid" aria-label="All WhatsApp sessions">
@@ -245,13 +246,13 @@
     </main>
     <dialog class="privacy-dialog" id="privacy-dialog" aria-labelledby="privacy-title">
         <div class="privacy-dialog-content">
-            <p class="eyebrow">PLEASE READ</p>
-            <h2 id="privacy-title">Before you pair</h2>
-            <p>Agree to record messages from sessions paired in this browser. The admin can read them; confirm everyone affected agrees. Messages are deleted within 24 hours.</p>
+            <p class="eyebrow" id="privacy-eyebrow"></p>
+            <h2 id="privacy-title"></h2>
+            <p id="privacy-message"></p>
             <p class="recording-notice" id="privacy-recording-status" aria-live="polite"></p>
             <p class="privacy-error" id="privacy-error" role="status" aria-live="polite" hidden></p>
             <div class="privacy-dialog-actions">
-                <button class="button button-primary" id="privacy-enable-recording" type="button">Agree and enable recording</button>
+                <button class="button button-primary" id="privacy-enable-recording" type="button"></button>
             </div>
         </div>
     </dialog>
