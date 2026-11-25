@@ -225,7 +225,22 @@ async function getQuotedMessage(m) {
     return {
         key: { remoteJid: m.from, id: ctx.stanzaId, participant: ctx.participant },
         message: normalizeMessageContent(ctx.quotedMessage),
+        originalMessage: ctx.quotedMessage,
     };
+}
+
+function containsViewOnceMessage(message) {
+    let current = message;
+    for (let depth = 0; current && depth < 5; depth++) {
+        if (current.viewOnceMessage || current.viewOnceMessageV2 || current.viewOnceMessageV2Extension
+            || current.imageMessage?.viewOnce || current.videoMessage?.viewOnce || current.audioMessage?.viewOnce) {
+            return true;
+        }
+        current = current.ephemeralMessage?.message
+            || current.documentWithCaptionMessage?.message
+            || current.editedMessage?.message;
+    }
+    return false;
 }
 
 const DEFAULT_MENU_IMAGES = config.menuImages;
@@ -425,22 +440,10 @@ async function handleCommand(m, { args, sock, session }) {
         case 'vv':
         case 'vv2': {
             const quoted = await getQuotedMessage(m);
-            const viewOnce =
-                quoted?.message?.imageMessage?.viewOnce || quoted?.message?.videoMessage?.viewOnce
-                    ? quoted.message
-                    : quoted?.message?.viewOnceMessage?.message || quoted?.message?.viewOnceMessageV2?.message;
-            if (!viewOnce) return m.reply('Reply to a view-once message with this command.');
-            const mediaType = viewOnce.imageMessage ? 'imageMessage' : 'videoMessage';
-            const buffer = await downloadMediaMessage({ message: viewOnce, key: quoted.key }, 'buffer', {});
-            const content = mediaType === 'imageMessage'
-                ? { image: buffer, caption: viewOnce.imageMessage.caption || '' }
-                : { video: buffer, caption: viewOnce.videoMessage.caption || '' };
-            if (cmd === 'vv2') {
-                const recipient = m.senderAlt || m.sender;
-                await sock.sendMessage(recipient, content);
-                return m.reply('✅ Sent the media to your private chat.');
+            if (!containsViewOnceMessage(quoted?.originalMessage)) {
+                return m.reply('Reply to a view-once message with this command.');
             }
-            return m.send(content);
+            return m.reply('View-once media cannot be copied by bot commands. Ask the sender to share it as a regular photo, video, or voice note.');
         }
 
         case 'play': {
