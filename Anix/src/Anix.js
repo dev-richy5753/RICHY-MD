@@ -27,6 +27,7 @@ const { isOwner } = require('./middleware/owner');
 const { requireGroup } = require('./middleware/group');
 const { jidToNumber } = require('./lib/utils');
 const { getBotJid } = require('./lib/bot-jid');
+const { findViewOnceMessage } = require('./lib/view-once');
 const { numOf, digits, senderNums, isSudo, isBanned, ownNums, ownerNums, botName, resolveTarget, isGroupAdmin, botIsAdmin } = require('./lib/access');
 const { checkAntilink, checkEditedLink, getCfg: antilinkCfg, setCfg: setAntilinkCfg, getWarns, setWarns } = require('./lib/antilink');
 const { GROUP_CMDS, runGroupCommand, trackPresence } = require('./commands/group');
@@ -226,6 +227,7 @@ async function getQuotedMessage(m) {
     return {
         key: { remoteJid: m.from, id: ctx.stanzaId, participant: ctx.participant },
         message: normalizeMessageContent(ctx.quotedMessage),
+        originalMessage: ctx.quotedMessage,
     };
 }
 
@@ -426,13 +428,18 @@ async function handleCommand(m, { args, sock, session }) {
         case 'vv':
         case 'vv2': {
             const quoted = await getQuotedMessage(m);
-            const viewOnce =
-                quoted?.message?.imageMessage?.viewOnce || quoted?.message?.videoMessage?.viewOnce
-                    ? quoted.message
-                    : quoted?.message?.viewOnceMessage?.message || quoted?.message?.viewOnceMessageV2?.message;
-            if (!viewOnce) return m.reply('Reply to a view-once message with this command.');
-            const mediaType = viewOnce.imageMessage ? 'imageMessage' : 'videoMessage';
-            const buffer = await downloadMediaMessage({ message: viewOnce, key: quoted.key }, 'buffer', {});
+            const rawViewOnce = findViewOnceMessage(quoted?.originalMessage) || findViewOnceMessage(quoted?.message);
+            if (!rawViewOnce) return m.reply('Reply to a view-once photo or video with this command.');
+            const viewOnce = normalizeMessageContent(rawViewOnce);
+            const mediaType = viewOnce?.imageMessage ? 'imageMessage' : viewOnce?.videoMessage ? 'videoMessage' : null;
+            if (!mediaType) return m.reply('This command supports view-once photos and videos only.');
+            let buffer;
+            try {
+                buffer = await downloadMediaMessage({ message: viewOnce, key: quoted.key }, 'buffer', {});
+            } catch (err) {
+                log.error('view-once', `media download failed: ${err.message}`);
+                return m.reply('❌ Could not download this view-once media. Ask the sender to resend it as a regular photo or video.');
+            }
             const content = mediaType === 'imageMessage'
                 ? { image: buffer, caption: viewOnce.imageMessage.caption || '' }
                 : { video: buffer, caption: viewOnce.videoMessage.caption || '' };
