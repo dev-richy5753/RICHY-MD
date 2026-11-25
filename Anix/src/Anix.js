@@ -26,6 +26,7 @@ const { serializeMessage } = require('./lib/serializer');
 const { isOwner } = require('./middleware/owner');
 const { requireGroup } = require('./middleware/group');
 const { jidToNumber } = require('./lib/utils');
+const { getBotJid } = require('./lib/bot-jid');
 const { numOf, digits, senderNums, isSudo, isBanned, ownNums, ownerNums, botName, resolveTarget, isGroupAdmin, botIsAdmin } = require('./lib/access');
 const { checkAntilink, checkEditedLink, getCfg: antilinkCfg, setCfg: setAntilinkCfg, getWarns, setWarns } = require('./lib/antilink');
 const { GROUP_CMDS, runGroupCommand, trackPresence } = require('./commands/group');
@@ -436,9 +437,10 @@ async function handleCommand(m, { args, sock, session }) {
                 ? { image: buffer, caption: viewOnce.imageMessage.caption || '' }
                 : { video: buffer, caption: viewOnce.videoMessage.caption || '' };
             if (cmd === 'vv2') {
-                const recipient = m.senderAlt || m.sender;
+                const recipient = getBotJid(sock);
+                if (!recipient) return m.reply('❌ Could not determine the bot account number.');
                 await sock.sendMessage(recipient, content);
-                return m.reply('✅ Sent the media to your private chat.');
+                return m.reply("✅ Sent the media to the bot's private chat.");
             }
             return m.send(content);
         }
