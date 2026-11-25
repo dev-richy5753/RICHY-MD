@@ -419,6 +419,24 @@ function createAppApi({ botToken, botUsername, adminPassword, sessionKey, store,
                     });
                 }
 
+                const adminSessionDeleteMatch = pathname.match(/^\/api\/admin\/sessions\/([A-Za-z0-9_-]+)$/);
+                if (adminSessionDeleteMatch && request.method === 'DELETE') {
+                    assertSameOrigin(request);
+                    const number = Object.keys(store.allSessions())
+                        .find((sessionNumber) => sessionLookupId(sessionNumber, secret) === adminSessionDeleteMatch[1]);
+                    const session = number ? store.getSession(number) : null;
+                    if (!session) throw new ApiError(404, 'WhatsApp session not found.');
+
+                    clearPairingCodeTimer(number);
+                    await engine.removeSession(number);
+                    store.deleteSession(number);
+                    const ownerId = session.appOwnerId ?? session.telegramUserId;
+                    if (ownerId !== undefined && ownerId !== null) {
+                        store.recordAppEvent(ownerId, 'session_deleted');
+                    }
+                    return sendJson(response, 200, { ok: true });
+                }
+
                 if (pathname === '/api/admin/messages' && request.method === 'GET') {
                     const requestedSessionId = new URL(request.url, `http://${request.headers.host || 'localhost'}`)
                         .searchParams.get('sessionId');

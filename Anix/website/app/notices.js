@@ -16,6 +16,10 @@ window.RICHY_NOTICES = Object.freeze({
     sessionRemoveConfirm: (lastFour) =>
         `Remove the WhatsApp session ending in ${lastFour}? This will unlink it from this server.`,
     sessionRemoved: 'Session removed.',
+    adminSessionDeleteConfirm: (number) =>
+        `Permanently delete the WhatsApp session for ${number}, including its saved login and recorded messages? You can pair this number again afterward.`,
+    adminSessionDeleted: 'WhatsApp session and its saved login were deleted. You can pair the number again.',
+    adminSessionDeleteButton: 'Delete session',
     pairingStarted: 'Pairing started. Keep this screen open while WhatsApp prepares your code.',
     soundtrackError: 'The soundtrack could not be played. Try again after checking your device audio settings.',
     sessionPairing: (number) => `New WhatsApp session is pairing: ${number}`,

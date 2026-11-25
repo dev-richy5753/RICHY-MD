@@ -364,8 +364,39 @@ function renderAdminSessions(sessions = []) {
         const activity = document.createElement('span');
         activity.className = 'admin-session-activity';
         activity.textContent = `${session.connected ? 'Connected' : 'Offline'} · ${session.reconnectCount} reconnects · ${formatDuration(session.uptimeMs)} uptime`;
-        row.append(details, activity);
+        const actions = document.createElement('div');
+        actions.className = 'admin-session-actions';
+        const remove = document.createElement('button');
+        remove.className = 'button button-quiet admin-session-delete';
+        remove.type = 'button';
+        remove.textContent = window.RICHY_NOTICES.adminSessionDeleteButton;
+        remove.setAttribute('aria-label', `Delete WhatsApp session ${session.number}`);
+        remove.addEventListener('click', () => deleteAdminSession(session, remove));
+        actions.append(activity, remove);
+        row.append(details, actions);
         list.append(row);
+    }
+}
+
+async function deleteAdminSession(session, button) {
+    if (!window.confirm(window.RICHY_NOTICES.adminSessionDeleteConfirm(session.number))) return;
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    hideNotice();
+    try {
+        await api(`/api/admin/sessions/${encodeURIComponent(session.sessionId)}`, { method: 'DELETE' });
+        if (selectedAdminSessionId === session.sessionId) {
+            selectedAdminSessionId = '';
+            adminMessages = [];
+            renderedAdminMessageSessionId = '';
+            renderedAdminMessageIds = '';
+        }
+        await refreshAdminPanel(false);
+        showNotice(window.RICHY_NOTICES.adminSessionDeleted, 'success');
+    } catch (error) {
+        button.disabled = false;
+        button.removeAttribute('aria-busy');
+        showNotice(error.message, 'error');
     }
 }
 

@@ -1,9 +1,9 @@
-const CACHE_NAME = 'richy-md-app-shell-v23';
+const CACHE_NAME = 'richy-md-app-shell-v24';
 const APP_SHELL = [
     '/app/',
-    '/app/app.css?v=23',
-    '/app/notices.js?v=23',
-    '/app/app.js?v=23',
+    '/app/app.css?v=24',
+    '/app/notices.js?v=24',
+    '/app/app.js?v=24',
     '/app/manifest.webmanifest',
     '/app/icon-512.png',
     '/app/icon.webp',

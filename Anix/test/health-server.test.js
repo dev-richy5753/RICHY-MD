@@ -49,11 +49,11 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.doesNotMatch(appHtml, /Owner admin|privacy-open/);
     assert.match(appHtml, /id="privacy-dialog"/);
     assert.doesNotMatch(appHtml, /Continue without recording/);
-    assert.match(appHtml, /notices\.js\?v=23/);
-    assert.match(appHtml, /app\.js\?v=23/);
-    assert.match(appHtml, /app\.css\?v=23/);
-    assert.ok(appHtml.indexOf('notices.js?v=23') < appHtml.indexOf('app.js?v=23'));
-    const noticeCopy = await (await fetch(`${baseUrl}/app/notices.js?v=23`)).text();
+    assert.match(appHtml, /notices\.js\?v=24/);
+    assert.match(appHtml, /app\.js\?v=24/);
+    assert.match(appHtml, /app\.css\?v=24/);
+    assert.ok(appHtml.indexOf('notices.js?v=24') < appHtml.indexOf('app.js?v=24'));
+    const noticeCopy = await (await fetch(`${baseUrl}/app/notices.js?v=24`)).text();
     assert.match(noticeCopy, /privacyMessage:/);
     assert.match(noticeCopy, /agreeButton:/);
     assert.match(noticeCopy, /New WhatsApp session is pairing/);
@@ -61,6 +61,7 @@ test('health server serves the expanded landing page and preserves the health ch
     assert.match(await (await fetch(`${baseUrl}/app/app.js`)).text(), /if \(adminEntry\)[\s\S]*showView\('admin'\)[\s\S]*showPrivacyGateIfNeeded\(\)/);
     assert.match(appHtml, /id="admin-message-list"/);
     assert.match(appHtml, /id="admin-message-table-wrap"/);
+    assert.match(await (await fetch(`${baseUrl}/app/app.js`)).text(), /Delete WhatsApp session \$\{session\.number\}/);
     assert.match(appHtml, /<th>Type<\/th>/);
     assert.match(appHtml, /Full phone numbers are shown here/);
     assert.match(appHtml, /The first session is selected automatically/);

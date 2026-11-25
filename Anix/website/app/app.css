@@ -479,6 +479,9 @@ h1 span {
 .admin-session-account { overflow-wrap: anywhere; color: #a5a0a6; font-size: 0.68rem; }
 .admin-session-row .session-status[data-status="connected"]::before { background: var(--admin-red); box-shadow: 0 0 8px var(--admin-red); }
 .admin-session-activity { color: #a5a0a6; font-size: 0.66rem; text-align: right; }
+.admin-session-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.admin-session-delete { padding: 7px 10px; border-color: rgba(255, 41, 79, 0.36); color: #ffdce2; font-size: 0.68rem; }
+.admin-session-delete:hover:not(:disabled) { border-color: var(--admin-red); background: rgba(255, 41, 79, 0.12); }
 .admin-message-table-wrap { margin-top: 15px; overflow-x: auto; border: 1px solid rgba(255, 41, 79, 0.2); border-radius: 10px; }
 .admin-message-table { width: 100%; min-width: 720px; border-collapse: collapse; color: #f4f2f5; font-size: 0.72rem; text-align: left; }
 .admin-message-table th, .admin-message-table td { padding: 11px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); vertical-align: top; }

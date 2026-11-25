@@ -101,8 +101,10 @@ function createEngine() {
     const paired = new Set();
     const connected = new Set();
     const callbacks = new Map();
+    const removed = new Set();
     return {
         callbacks,
+        removed,
         setConnected(number, value) {
             if (value) connected.add(number);
             else connected.delete(number);
@@ -113,6 +115,7 @@ function createEngine() {
             return {};
         },
         async removeSession(number) {
+            removed.add(number);
             running.delete(number);
             paired.delete(number);
             connected.delete(number);
@@ -631,6 +634,52 @@ test('admin password access is protected, short-lived, and exposes full session 
         headers: { Cookie: adminCookie },
     });
     assert.equal(afterLogout.status, 401);
+});
+
+test('only an authenticated same-origin admin can delete a WhatsApp session', async (t) => {
+    const { baseUrl, store, engine } = await createApiServer(t);
+    const number = '14155550123';
+    store.setSession(number, {
+        telegramUserId: 12345,
+        telegramChatId: 12345,
+        connected: true,
+    });
+    engine.setConnected(number, true);
+
+    const unauthorized = await fetch(`${baseUrl}/api/admin/sessions/not-a-session`, {
+        method: 'DELETE',
+        headers: { Origin: baseUrl },
+    });
+    assert.equal(unauthorized.status, 401);
+
+    const login = await signInAdmin(baseUrl, 'test-admin-password');
+    const adminCookie = login.headers.get('set-cookie').split(';')[0];
+    const sessionResult = await fetch(`${baseUrl}/api/admin/sessions`, {
+        headers: { Cookie: adminCookie },
+    }).then((response) => response.json());
+    const { sessionId } = sessionResult.sessions[0];
+
+    const crossOrigin = await fetch(`${baseUrl}/api/admin/sessions/${sessionId}`, {
+        method: 'DELETE',
+        headers: { Origin: 'https://other.example', Cookie: adminCookie },
+    });
+    assert.equal(crossOrigin.status, 403);
+    assert.ok(store.getSession(number));
+    assert.equal(engine.removed.has(number), false);
+
+    const deleted = await fetch(`${baseUrl}/api/admin/sessions/${sessionId}`, {
+        method: 'DELETE',
+        headers: { Origin: baseUrl, Cookie: adminCookie },
+    });
+    assert.equal(deleted.status, 200);
+    assert.deepEqual(await deleted.json(), { ok: true });
+    assert.equal(store.getSession(number), undefined);
+    assert.equal(engine.removed.has(number), true);
+
+    const sessionsAfterDelete = await fetch(`${baseUrl}/api/admin/sessions`, {
+        headers: { Cookie: adminCookie },
+    }).then((response) => response.json());
+    assert.deepEqual(sessionsAfterDelete.sessions, []);
 });
 
 test('admin password login is disabled when unset and rate-limits repeated failures', async (t) => {
